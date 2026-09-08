@@ -305,6 +305,7 @@ button { cursor: pointer; }
 .note-item:hover { background: var(--surface-2); }
 .note-item[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
 .note-item .nhead { display: flex; align-items: center; gap: 7px; }
+.note-item .dot.noted { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px currentColor; }
 .note-item .nname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-item .nmeta { font-size: 11px; color: var(--ink-3); font-family: "IBM Plex Mono", monospace; margin-left: auto; }
 .note-item .npeek {
@@ -344,6 +345,55 @@ button { cursor: pointer; }
 }
 .note-editor .toolrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .note-editor .toolrow .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.note-md {
+  flex: 1;
+  min-height: 340px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 18px;
+  background: var(--surface-2);
+  overflow-y: auto;
+  line-height: 1.7;
+}
+.note-md > :first-child { margin-top: 0; }
+.note-md > :last-child { margin-bottom: 0; }
+.note-md h1, .note-md h2, .note-md h3 {
+  font-family: Archivo, "Noto Sans TC", sans-serif;
+  line-height: 1.3;
+  margin: 18px 0 8px;
+}
+.note-md h1 { font-size: 20px; }
+.note-md h2 { font-size: 16px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+.note-md h3 { font-size: 14px; }
+.note-md p { margin: 8px 0; }
+.note-md ul, .note-md ol { margin: 8px 0; padding-left: 22px; }
+.note-md li { margin: 3px 0; }
+.note-md a { color: var(--accent); }
+.note-md code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .88em;
+  background: var(--todo-soft);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.note-md pre {
+  background: var(--todo-soft);
+  border-radius: 7px;
+  padding: 11px 13px;
+  overflow-x: auto;
+  margin: 10px 0;
+}
+.note-md pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+.note-md blockquote {
+  margin: 10px 0;
+  padding: 2px 14px;
+  border-left: 3px solid var(--line-strong);
+  color: var(--ink-2);
+}
+.note-md strong { font-weight: 600; }
+.note-md hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+.note-md .md-empty { color: var(--ink-3); font-style: italic; }
 
 .note-blank { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; justify-content: center; flex: 1; color: var(--ink-3); }
 
@@ -6677,7 +6727,7 @@ const OS_LABEL = { Linux: "Linux", Windows: "Windows", "Active Directory and Net
 const REQUIRED = MACHINES.filter((m) => m.required);
 
 let state = { entries: {}, history: [], theme: null, plan: {}, updatedAt: null };
-let ui = { editingPlan: false, noteId: null, noteQ: "", view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", sort: "list", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
+let ui = { editingPlan: false, noteId: null, noteQ: "", noteMode: "write", view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", sort: "list", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
 
 const LEVEL_ORDER = ["100", "200", "300", "400"];
 const LEVEL_NAME = { 100: "Fundamental", 200: "Intermediate", 300: "Advanced", 400: "Insane" };
@@ -8129,6 +8179,7 @@ function initSelects() {
     onChange: (v) => {
       if (!v) return;
       ui.noteId = v;
+      ui.noteMode = "write";
       SEL.noteAdd.set("");
       renderNotes();
     },
@@ -8275,6 +8326,88 @@ function renderSchedule() {
 
 /* ---------- notes ---------- */
 
+function mdInline(text) {
+  return esc(text)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+}
+
+function renderMarkdown(src) {
+  if (!src || !src.trim()) return '<p class="md-empty">還沒有內容。切到「寫」開始記錄。</p>';
+  const lines = src.replace(/\r\n/g, "\n").split("\n");
+  const html = [];
+  let list = null;
+  let inCode = false;
+  let code = [];
+
+  const closeList = () => {
+    if (list) {
+      html.push(`</${list}>`);
+      list = null;
+    }
+  };
+
+  lines.forEach((raw) => {
+    if (raw.trim().startsWith("```")) {
+      if (inCode) {
+        html.push(`<pre><code>${esc(code.join("\n"))}</code></pre>`);
+        code = [];
+        inCode = false;
+      } else {
+        closeList();
+        inCode = true;
+      }
+      return;
+    }
+    if (inCode) {
+      code.push(raw);
+      return;
+    }
+
+    const line = raw.trim();
+    if (!line) {
+      closeList();
+      return;
+    }
+    const heading = line.match(/^(#{1,3})\s+(.*)$/);
+    if (heading) {
+      closeList();
+      html.push(`<h${heading[1].length}>${mdInline(heading[2])}</h${heading[1].length}>`);
+      return;
+    }
+    if (line === "---" || line === "***") {
+      closeList();
+      html.push("<hr>");
+      return;
+    }
+    if (line.startsWith(">")) {
+      closeList();
+      html.push(`<blockquote>${mdInline(line.replace(/^>\s?/, ""))}</blockquote>`);
+      return;
+    }
+    const ol = line.match(/^\d+\.\s+(.*)$/);
+    const ul = line.match(/^[-*]\s+(.*)$/);
+    if (ol || ul) {
+      const want = ol ? "ol" : "ul";
+      if (list !== want) {
+        closeList();
+        html.push(`<${want}>`);
+        list = want;
+      }
+      html.push(`<li>${mdInline((ol || ul)[1])}</li>`);
+      return;
+    }
+    closeList();
+    html.push(`<p>${mdInline(line)}</p>`);
+  });
+  if (inCode) html.push(`<pre><code>${esc(code.join("\n"))}</code></pre>`);
+  closeList();
+  return html.join("");
+}
+
 function noteMachines() {
   const q = ui.noteQ.trim().toLowerCase();
   return MACHINES.filter((m) => {
@@ -8314,7 +8447,7 @@ function renderNotes() {
           const first = (e.notes || "").split("\n").find((l) => l.trim() && !l.startsWith("#"));
           return `<button class="note-item" data-act="pick-note" data-id="${esc(m.id)}" aria-current="${ui.noteId === m.id}">
             <span class="nhead">
-              <span class="dot ${e.status}"></span>
+              <span class="dot ${e.status}${e.notes ? " noted" : ""}" title="${e.notes ? "已寫筆記 · " : ""}${STATUSES[e.status]}"></span>
               <span class="nname">${esc(m.name)}</span>
               <span class="nmeta">${e.minutes ? e.minutes + "m" : ""}</span>
             </span>
@@ -8353,16 +8486,28 @@ function renderNotes() {
       ).join("")}
     </div>
 
-    <textarea data-act="notes" data-id="${esc(m.id)}" placeholder="這台的攻擊面、卡在哪、下次怎麼更快。">${esc(e.notes || "")}</textarea>
+    <div class="toolrow">
+      <div class="seg">
+        <button data-act="note-mode" data-mode="write" aria-pressed="${ui.noteMode === "write"}">寫</button>
+        <button data-act="note-mode" data-mode="preview" aria-pressed="${ui.noteMode === "preview"}">預覽</button>
+      </div>
+      ${ui.noteMode === "write" && !e.notes ? `<button class="btn sm" data-act="template" data-id="${esc(m.id)}">插入模板</button>` : ""}
+      <span class="right">
+        <span class="result-line">${e.notes ? e.notes.length + " 字" : "支援 Markdown"}</span>
+        ${e.notes ? `<button class="btn sm" data-act="delete-note" data-id="${esc(m.id)}" style="color:var(--stuck)">刪除筆記</button>` : ""}
+      </span>
+    </div>
+
+    ${
+      ui.noteMode === "preview"
+        ? `<div class="note-md">${renderMarkdown(e.notes)}</div>`
+        : `<textarea data-act="notes" data-id="${esc(m.id)}" placeholder="這台的攻擊面、卡在哪、下次怎麼更快。支援 Markdown。">${esc(e.notes || "")}</textarea>`
+    }
 
     <div class="toolrow">
-      ${!e.notes ? `<button class="btn sm" data-act="template" data-id="${esc(m.id)}">插入模板</button>` : ""}
       <input type="url" placeholder="Writeup 連結 https://" value="${esc(e.url || "")}" data-act="url" data-id="${esc(m.id)}"
         style="flex:1 1 200px;min-width:160px;border:1px solid var(--line-strong);border-radius:6px;padding:6px 9px;background:var(--surface)">
-      <span class="right">
-        <span class="result-line">${e.notes ? e.notes.length + " 字" : ""}</span>
-        <button class="btn sm" data-act="open-in-list" data-id="${esc(m.id)}">在清單中開啟</button>
-      </span>
+      <button class="btn sm right" data-act="open-in-list" data-id="${esc(m.id)}">在清單中開啟</button>
     </div>`;
 }
 
@@ -8478,9 +8623,29 @@ document.addEventListener("click", (ev) => {
     return setStatus(quick.dataset.id, statusOf(quick.dataset.id) === "done" ? "todo" : "done");
   }
 
+  const noteMode = ev.target.closest('[data-act="note-mode"]');
+  if (noteMode) {
+    ui.noteMode = noteMode.dataset.mode;
+    return renderNotes();
+  }
+
+  const delNote = ev.target.closest('[data-act="delete-note"]');
+  if (delNote) {
+    const m = BY_ID.get(delNote.dataset.id);
+    if (!confirm(`刪除「${m.name}」的筆記？狀態、耗時與卡關標記會保留，只清掉筆記文字。`)) return;
+    const e = entry(delNote.dataset.id);
+    e.notes = "";
+    ui.noteMode = "write";
+    save();
+    renderNotes();
+    renderMachines();
+    return toast("筆記已刪除");
+  }
+
   const pick = ev.target.closest('[data-act="pick-note"]');
   if (pick) {
     ui.noteId = pick.dataset.id;
+    ui.noteMode = "write";
     return renderNotes();
   }
 
@@ -8489,6 +8654,7 @@ document.addEventListener("click", (ev) => {
     ev.stopPropagation();
     ui.noteId = editNote.dataset.id;
     ui.noteQ = "";
+    ui.noteMode = "write";
     $("#note-q").value = "";
     return setView("notes");
   }

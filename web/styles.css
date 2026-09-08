@@ -302,6 +302,7 @@ button { cursor: pointer; }
 .note-item:hover { background: var(--surface-2); }
 .note-item[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
 .note-item .nhead { display: flex; align-items: center; gap: 7px; }
+.note-item .dot.noted { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px currentColor; }
 .note-item .nname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-item .nmeta { font-size: 11px; color: var(--ink-3); font-family: "IBM Plex Mono", monospace; margin-left: auto; }
 .note-item .npeek {
@@ -341,6 +342,55 @@ button { cursor: pointer; }
 }
 .note-editor .toolrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .note-editor .toolrow .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.note-md {
+  flex: 1;
+  min-height: 340px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 18px;
+  background: var(--surface-2);
+  overflow-y: auto;
+  line-height: 1.7;
+}
+.note-md > :first-child { margin-top: 0; }
+.note-md > :last-child { margin-bottom: 0; }
+.note-md h1, .note-md h2, .note-md h3 {
+  font-family: Archivo, "Noto Sans TC", sans-serif;
+  line-height: 1.3;
+  margin: 18px 0 8px;
+}
+.note-md h1 { font-size: 20px; }
+.note-md h2 { font-size: 16px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+.note-md h3 { font-size: 14px; }
+.note-md p { margin: 8px 0; }
+.note-md ul, .note-md ol { margin: 8px 0; padding-left: 22px; }
+.note-md li { margin: 3px 0; }
+.note-md a { color: var(--accent); }
+.note-md code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .88em;
+  background: var(--todo-soft);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.note-md pre {
+  background: var(--todo-soft);
+  border-radius: 7px;
+  padding: 11px 13px;
+  overflow-x: auto;
+  margin: 10px 0;
+}
+.note-md pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+.note-md blockquote {
+  margin: 10px 0;
+  padding: 2px 14px;
+  border-left: 3px solid var(--line-strong);
+  color: var(--ink-2);
+}
+.note-md strong { font-weight: 600; }
+.note-md hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+.note-md .md-empty { color: var(--ink-3); font-style: italic; }
 
 .note-blank { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; justify-content: center; flex: 1; color: var(--ink-3); }
 
