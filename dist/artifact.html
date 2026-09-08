@@ -276,6 +276,82 @@ button { cursor: pointer; }
 .plan-form .field { min-width: 150px; }
 .plan-form .actions { display: flex; gap: 8px; margin-left: auto; }
 
+/* ---------- notes ---------- */
+
+.notes-layout { display: grid; grid-template-columns: 268px minmax(0, 1fr); gap: 16px; align-items: start; }
+
+.note-list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden auto;
+  max-height: 72vh;
+  display: flex;
+  flex-direction: column;
+}
+.note-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 13px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  background: transparent;
+}
+.note-item:last-child { border-bottom: 0; }
+.note-item:hover { background: var(--surface-2); }
+.note-item[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
+.note-item .nhead { display: flex; align-items: center; gap: 7px; }
+.note-item .nname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-item .nmeta { font-size: 11px; color: var(--ink-3); font-family: "IBM Plex Mono", monospace; margin-left: auto; }
+.note-item .npeek {
+  font-size: 12px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.note-item .npeek.blank { font-style: italic; }
+
+.note-editor {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 320px;
+}
+.note-editor .nhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.note-editor h3 { font-size: 18px; }
+.note-editor .facts { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.note-editor textarea {
+  flex: 1;
+  min-height: 340px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  resize: vertical;
+}
+.note-editor .toolrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.note-editor .toolrow .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.note-blank { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; justify-content: center; flex: 1; color: var(--ink-3); }
+
+@media (max-width: 940px) {
+  .notes-layout { grid-template-columns: minmax(0, 1fr); }
+  .note-list { max-height: 260px; }
+}
+
 /* ---------- charts ---------- */
 
 .chart { position: relative; }
@@ -1013,6 +1089,7 @@ ul { list-style: none; margin: 0; padding: 0; }
       <button data-view="machines"><span class="glyph">▤</span>靶機清單<span class="count" id="nav-count-machines"></span></button>
       <button data-view="draw"><span class="glyph">◎</span>抽靶機</button>
       <button data-view="schedule"><span class="glyph">▦</span>排程<span class="count" id="nav-count-sched"></span></button>
+      <button data-view="notes"><span class="glyph">✎</span>筆記<span class="count" id="nav-count-notes"></span></button>
       <button data-view="data"><span class="glyph">↯</span>資料</button>
     </nav>
     <div id="timer-slot"></div>
@@ -1202,6 +1279,31 @@ ul { list-style: none; margin: 0; padding: 0; }
       </div>
 
       <div class="week-grid" id="week-grid"></div>
+    </section>
+
+    <!-- 筆記 -->
+    <section class="view" id="view-notes">
+      <div class="view-head">
+        <div>
+          <span class="eyebrow">Field notes</span>
+          <h2>筆記</h2>
+          <p>所有動過的靶機都在這裡。寫下攻擊面、卡在哪、下次怎麼做得更快——這份東西比打過幾台更值錢。</p>
+        </div>
+        <button class="btn" id="notes-export">匯出 Markdown</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <span class="glyph">⌕</span>
+          <input type="search" id="note-q" placeholder="搜尋筆記內容或靶機名稱…">
+        </div>
+        <div class="sel" id="note-add" style="max-width:260px"></div>
+      </div>
+
+      <div class="notes-layout">
+        <div class="note-list" id="note-list"></div>
+        <div class="note-editor" id="note-editor"></div>
+      </div>
     </section>
 
     <!-- 資料 -->
@@ -6575,7 +6677,7 @@ const OS_LABEL = { Linux: "Linux", Windows: "Windows", "Active Directory and Net
 const REQUIRED = MACHINES.filter((m) => m.required);
 
 let state = { entries: {}, history: [], theme: null, plan: {}, updatedAt: null };
-let ui = { editingPlan: false, view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", sort: "list", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
+let ui = { editingPlan: false, noteId: null, noteQ: "", view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", sort: "list", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
 
 const LEVEL_ORDER = ["100", "200", "300", "400"];
 const LEVEL_NAME = { 100: "Fundamental", 200: "Intermediate", 300: "Advanced", 400: "Insane" };
@@ -7873,10 +7975,11 @@ function detailHtml(m) {
         </div>
       </div>
       <div class="field wide">
-        <label>筆記
-          ${!e.notes ? `<button type="button" class="btn ghost sm" data-act="template" data-id="${esc(m.id)}" style="margin-left:8px">插入模板</button>` : ""}
-        </label>
-        <textarea data-act="notes" data-id="${esc(m.id)}" placeholder="例：80/tcp 有舊版 CMS，作者路徑遍歷拿到憑證；提權靠 sudo 誤設。">${esc(e.notes || "")}</textarea>
+        <label>筆記</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span class="result-line" style="flex:1">${e.notes ? esc(e.notes.split("\n").find((l) => l.trim() && !l.startsWith("#"))?.trim().slice(0, 60) || (e.notes.length + " 字")) : "還沒寫筆記"}</span>
+          <button type="button" class="btn sm" data-act="edit-note" data-id="${esc(m.id)}">${e.notes ? "編輯筆記 →" : "寫筆記 →"}</button>
+        </div>
       </div>
     </div>
   </div>`;
@@ -8013,6 +8116,22 @@ function initSelects() {
     options: levelOptions("不限難度", ["100", "200", "300"]),
     placeholder: "不限難度",
     onChange: (v) => { ui.drawLevel = v; renderPool(); },
+  });
+  SEL.noteAdd = createSelect("note-add", {
+    options: MACHINES.map((m) => ({
+      value: m.id,
+      label: m.name,
+      hint: shortPlatform(m.platform),
+      group: m.track === "OSCP" ? "OSCP 清單" : "Red Team 清單",
+    })),
+    placeholder: "挑一台開始寫…",
+    searchable: true,
+    onChange: (v) => {
+      if (!v) return;
+      ui.noteId = v;
+      SEL.noteAdd.set("");
+      renderNotes();
+    },
   });
   SEL.assignMachine = createSelect("assign-machine", {
     options: [],
@@ -8154,6 +8273,99 @@ function renderSchedule() {
   if (!$("#assign-date").value) $("#assign-date").value = today();
 }
 
+/* ---------- notes ---------- */
+
+function noteMachines() {
+  const q = ui.noteQ.trim().toLowerCase();
+  return MACHINES.filter((m) => {
+    const e = peek(m.id);
+    if (e.status === "todo" && !e.notes && !(e.phases || []).length) return false;
+    if (!q) return true;
+    return m.name.toLowerCase().includes(q) || (e.notes || "").toLowerCase().includes(q);
+  }).sort((a, b) => {
+    const ea = peek(a.id);
+    const eb = peek(b.id);
+    if (!!eb.notes !== !!ea.notes) return eb.notes ? 1 : -1;
+    return (eb.updatedAt || "").localeCompare(ea.updatedAt || "");
+  });
+}
+
+function noteList() {
+  const list = noteMachines();
+  if (ui.noteId && BY_ID.has(ui.noteId) && !list.some((m) => m.id === ui.noteId)) {
+    list.unshift(BY_ID.get(ui.noteId));
+  }
+  return list;
+}
+
+function renderNotes() {
+  const list = noteList();
+  const listHost = $("#note-list");
+  const editHost = $("#note-editor");
+  if (!listHost || !editHost) return;
+
+  if (ui.noteId && !BY_ID.has(ui.noteId)) ui.noteId = null;
+  if (!ui.noteId && list.length) ui.noteId = list[0].id;
+
+  listHost.innerHTML = list.length
+    ? list
+        .map((m) => {
+          const e = peek(m.id);
+          const first = (e.notes || "").split("\n").find((l) => l.trim() && !l.startsWith("#"));
+          return `<button class="note-item" data-act="pick-note" data-id="${esc(m.id)}" aria-current="${ui.noteId === m.id}">
+            <span class="nhead">
+              <span class="dot ${e.status}"></span>
+              <span class="nname">${esc(m.name)}</span>
+              <span class="nmeta">${e.minutes ? e.minutes + "m" : ""}</span>
+            </span>
+            <span class="npeek${first ? "" : " blank"}">${first ? esc(first.trim().slice(0, 40)) : "還沒寫筆記"}</span>
+          </button>`;
+        })
+        .join("")
+    : `<p class="empty" style="padding:20px;text-align:center">還沒有動過的靶機。標一台進行中，或用右上角的下拉直接挑一台開始寫。</p>`;
+
+  const m = ui.noteId ? BY_ID.get(ui.noteId) : null;
+  if (!m) {
+    editHost.innerHTML = `<div class="note-blank">
+      <b>選一台靶機開始寫</b>
+      <span>筆記寫的是方法論，不是通關步驟。下次遇到同類服務，你會想看到什麼？</span>
+    </div>`;
+    return;
+  }
+
+  const e = peek(m.id);
+  editHost.innerHTML = `
+    <div class="nhead">
+      <h3>${esc(m.name)}</h3>
+      <span class="facts">
+        <span class="chip">${esc(shortPlatform(m.platform))}</span>
+        <span class="chip">${esc(OS_LABEL[m.category] || m.category)}</span>
+        ${m.level ? `<span class="chip">${levelMeter(m)}</span>` : ""}
+        ${e.doneAt ? `<span class="chip mono">${esc(e.doneAt.slice(0, 10))}</span>` : ""}
+        ${e.minutes ? `<span class="chip mono">${e.minutes} 分</span>` : ""}
+      </span>
+    </div>
+
+    <div class="phase-picks">
+      ${PHASES.map(
+        (ph) =>
+          `<button type="button" data-act="phase" data-id="${esc(m.id)}" data-value="${ph.id}" title="${esc(ph.hint)}" aria-pressed="${(e.phases || []).includes(ph.id)}">${esc(ph.label)}</button>`
+      ).join("")}
+    </div>
+
+    <textarea data-act="notes" data-id="${esc(m.id)}" placeholder="這台的攻擊面、卡在哪、下次怎麼更快。">${esc(e.notes || "")}</textarea>
+
+    <div class="toolrow">
+      ${!e.notes ? `<button class="btn sm" data-act="template" data-id="${esc(m.id)}">插入模板</button>` : ""}
+      <input type="url" placeholder="Writeup 連結 https://" value="${esc(e.url || "")}" data-act="url" data-id="${esc(m.id)}"
+        style="flex:1 1 200px;min-width:160px;border:1px solid var(--line-strong);border-radius:6px;padding:6px 9px;background:var(--surface)">
+      <span class="right">
+        <span class="result-line">${e.notes ? e.notes.length + " 字" : ""}</span>
+        <button class="btn sm" data-act="open-in-list" data-id="${esc(m.id)}">在清單中開啟</button>
+      </span>
+    </div>`;
+}
+
 /* ---------- render root ---------- */
 
 function render() {
@@ -8166,6 +8378,9 @@ function render() {
   if (ui.view === "machines") renderMachines();
   if (ui.view === "draw") renderPool();
   if (ui.view === "schedule") renderSchedule();
+  if (ui.view === "notes") renderNotes();
+  const noteCount = Object.values(state.entries).filter((e) => e.notes).length;
+  $("#nav-count-notes").textContent = noteCount || "";
 }
 
 function setView(name) {
@@ -8263,6 +8478,33 @@ document.addEventListener("click", (ev) => {
     return setStatus(quick.dataset.id, statusOf(quick.dataset.id) === "done" ? "todo" : "done");
   }
 
+  const pick = ev.target.closest('[data-act="pick-note"]');
+  if (pick) {
+    ui.noteId = pick.dataset.id;
+    return renderNotes();
+  }
+
+  const editNote = ev.target.closest('[data-act="edit-note"]');
+  if (editNote) {
+    ev.stopPropagation();
+    ui.noteId = editNote.dataset.id;
+    ui.noteQ = "";
+    $("#note-q").value = "";
+    return setView("notes");
+  }
+
+  const openIn = ev.target.closest('[data-act="open-in-list"]');
+  if (openIn) {
+    const m = BY_ID.get(openIn.dataset.id);
+    Object.assign(ui, { track: m.track, q: m.name, platform: "", os: "", level: "", status: "", requiredOnly: false, open: m.id });
+    $("#q").value = m.name;
+    $("#f-required").checked = false;
+    ["platform", "os", "level", "status"].forEach((k) => SEL[k].set(""));
+    document.querySelectorAll("#track-seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.track === m.track)));
+    renderPlatformFilter();
+    return setView("machines");
+  }
+
   const phase = ev.target.closest('[data-act="phase"]');
   if (phase) {
     ev.stopPropagation();
@@ -8273,7 +8515,9 @@ document.addEventListener("click", (ev) => {
     e.phases = [...list];
     save();
     renderMachines();
-    return renderPhases();
+    renderPhases();
+    if (ui.view === "notes") renderNotes();
+    return;
   }
 
   const tpl = ev.target.closest('[data-act="template"]');
@@ -8281,7 +8525,8 @@ document.addEventListener("click", (ev) => {
     ev.stopPropagation();
     entry(tpl.dataset.id).notes = NOTE_TEMPLATE;
     save();
-    renderMachines();
+    if (ui.view === "notes") renderNotes();
+    else renderMachines();
     const box = document.querySelector(`textarea[data-id="${tpl.dataset.id}"]`);
     if (box) {
       box.focus();
@@ -8372,6 +8617,7 @@ document.addEventListener("change", (ev) => {
 
 document.addEventListener("input", (ev) => {
   if (ev.target.id === "q") { ui.q = ev.target.value; renderMachines(); }
+  if (ev.target.id === "note-q") { ui.noteQ = ev.target.value; ui.noteId = null; renderNotes(); }
   if (ev.target.dataset.act === "notes") { entry(ev.target.dataset.id).notes = ev.target.value; save(); }
 });
 
@@ -8492,6 +8738,8 @@ $("#rail-focus").onclick = () => {
 $("#btn-download").onclick = downloadBackup;
 
 $("#btn-markdown").onclick = exportMarkdown;
+
+$("#notes-export").onclick = exportMarkdown;
 
 $("#btn-restore-file").onclick = () => $("#file-input").click();
 

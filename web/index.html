@@ -24,6 +24,7 @@
       <button data-view="machines"><span class="glyph">▤</span>靶機清單<span class="count" id="nav-count-machines"></span></button>
       <button data-view="draw"><span class="glyph">◎</span>抽靶機</button>
       <button data-view="schedule"><span class="glyph">▦</span>排程<span class="count" id="nav-count-sched"></span></button>
+      <button data-view="notes"><span class="glyph">✎</span>筆記<span class="count" id="nav-count-notes"></span></button>
       <button data-view="data"><span class="glyph">↯</span>資料</button>
     </nav>
     <div id="timer-slot"></div>
@@ -213,6 +214,31 @@
       </div>
 
       <div class="week-grid" id="week-grid"></div>
+    </section>
+
+    <!-- 筆記 -->
+    <section class="view" id="view-notes">
+      <div class="view-head">
+        <div>
+          <span class="eyebrow">Field notes</span>
+          <h2>筆記</h2>
+          <p>所有動過的靶機都在這裡。寫下攻擊面、卡在哪、下次怎麼做得更快——這份東西比打過幾台更值錢。</p>
+        </div>
+        <button class="btn" id="notes-export">匯出 Markdown</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <span class="glyph">⌕</span>
+          <input type="search" id="note-q" placeholder="搜尋筆記內容或靶機名稱…">
+        </div>
+        <div class="sel" id="note-add" style="max-width:260px"></div>
+      </div>
+
+      <div class="notes-layout">
+        <div class="note-list" id="note-list"></div>
+        <div class="note-editor" id="note-editor"></div>
+      </div>
     </section>
 
     <!-- 資料 -->
