@@ -1,0 +1,8 @@
+.git
+docs
+dist
+scripts
+data/*.xlsx
+data/*.tsv
+*.md
+LICENSE

@@ -1,0 +1,8 @@
+services:
+  oscp-tracker:
+    build: .
+    image: oscp-tracker
+    container_name: oscp-tracker
+    ports:
+      - "8731:80"
+    restart: unless-stopped

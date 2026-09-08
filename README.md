@@ -7,17 +7,50 @@
 > pwned, draw a random box, plan your week. One HTML file, no server, no build step,
 > no dependencies, no account.
 
-![總覽](docs/overview.jpg)
+![總覽——考試倒數、每週節奏圖與卡關分布](docs/overview.jpg)
+
+## 畫面
+
+| | |
+| --- | --- |
+| ![靶機清單](docs/machines.jpg) | ![抽靶機](docs/draw.jpg) |
+| **靶機清單**：依平台分組、可篩選，每台帶 OffSec 難度 | **抽靶機**：從候選池隨機挑一台，預設鎖定未完成的必練 |
+| ![筆記](docs/notes.jpg) | ![排程](docs/schedule.jpg) |
+| **筆記**：集中管理、支援 Markdown、草稿／完成狀態 | **排程**：週視圖，手動排入或一鍵自動排 |
 
 ## 怎麼跑起來
 
-### 最快：一個檔案
+四種方式，由簡到繁。都不需要帳號，進度只存在你自己的裝置。
+
+### 方式一：一個檔案（最快）
 
 下載 [`dist/oscp-tracker.html`](dist/oscp-tracker.html)，用瀏覽器打開。沒了。
 
 沒有安裝步驟、沒有伺服器、沒有帳號。所有東西（含 445 台靶機資料）都在那一個檔案裡。
 
-### 或者 clone 下來改
+### 方式二：Docker（推薦長期自架）
+
+適合放在家用伺服器、NAS 或 VPS 上，開機自動啟動、隨時能連。
+
+```bash
+git clone <你的 repo 網址> && cd OPSC_track
+docker compose up -d
+```
+
+打開 `http://localhost:8731`（或伺服器 IP）。就這樣——映像檔是 nginx alpine，只提供 `web/` 這個純靜態目錄，
+沒有後端也沒有資料庫，跑起來大約 10 MB 記憶體。
+
+沒裝 compose 也能直接用 docker：
+
+```bash
+docker build -t oscp-tracker .
+docker run -d --name oscp-tracker -p 8731:80 --restart unless-stopped oscp-tracker
+```
+
+想換連接埠改 `-p 你要的埠:80` 即可（compose 則改 `docker-compose.yml` 裡的 `ports`）。
+停掉用 `docker compose down` 或 `docker rm -f oscp-tracker`。
+
+### 方式三：本機開發／改東西
 
 ```bash
 git clone <你的 repo 網址> && cd OPSC_track
@@ -26,23 +59,24 @@ xdg-open web/index.html      # Linux
 start web\index.html         # Windows
 ```
 
-`web/` 底下就是網站本體，改完存檔重新整理就看得到。如果你的瀏覽器擋掉本機檔案之間的載入，改用下面的方式。
+`web/` 底下就是網站本體，改完存檔重新整理就看得到。如果你的瀏覽器擋掉本機檔案之間的載入，用方式四。
 
-### 想在手機或其他裝置上開
+### 方式四：臨時起一個伺服器（手機／其他裝置也能連）
 
 ```bash
 python3 -m http.server 8731 --directory web
 ```
 
-同網段的裝置連 `http://<這台電腦的 IP>:8731` 就行。要放到網路上的話，這是純靜態網站，
-丟進 GitHub Pages、Netlify、Cloudflare Pages 或任何靜態空間都可以，`dist/oscp-tracker.html`
-單檔上傳也行。
+同網段的裝置連 `http://<這台電腦的 IP>:8731` 就行。
+
+> **放到公開網路？** 這是純靜態網站，丟進 GitHub Pages、Netlify、Cloudflare Pages 或任何靜態空間都可以，
+> `dist/oscp-tracker.html` 單檔上傳也行。但進度存在瀏覽器本機，公開部署不會幫多人分開存——它就是給你自己用的一份。
 
 ## 這東西吃多少資源
 
 沒有後端、沒有資料庫、沒有建置流程、沒有 npm。整包就是三個靜態檔加一份 128 KB 的靶機資料，
-除了瀏覽器分頁本身以外不佔用任何東西。唯一的外部請求是 Google Fonts 的字型檔；
-離線開一樣能用，只是字型換成系統字型。
+除了瀏覽器分頁本身以外不佔用任何東西。Docker 版也只是一個 nginx alpine 提供這些靜態檔，約 10 MB 記憶體。
+唯一的外部請求是 Google Fonts 的字型檔；離線開一樣能用，只是字型換成系統字型。
 
 ## 進度存在哪、怎麼不弄丟
 
@@ -83,8 +117,6 @@ python3 -m http.server 8731 --directory web
 - **排程** — 週視圖，手動排入或一鍵自動排本週 5 台
 - **資料** — 接上本機備份檔自動寫入，或手動下載／還原 JSON
 
-![靶機清單](docs/machines.jpg)
-
 ## 資料從哪來
 
 | 檔案 | 內容 |
@@ -115,15 +147,18 @@ uv run python scripts/build.py                          # web/ → dist/ 單檔�
 ## 專案結構
 
 ```
-web/            網站本體（vanilla JS，無框架、無建置流程）
+web/                網站本體（vanilla JS，無框架、無建置流程）
   index.html
   styles.css
   app.js
-  data.js       產生物，已 commit，這樣不用跑 Python 就能直接用
-dist/           單檔版（產生物）
-data/           原始與解析後的資料
-scripts/        資料解析與打包腳本
-docs/           README 用的截圖
+  data.js           產生物，已 commit，這樣不用跑 Python 就能直接用
+dist/               單檔版（產生物）
+data/               原始與解析後的資料
+scripts/            資料解析與打包腳本
+docker/nginx.conf   Docker 用的 nginx 設定
+Dockerfile          nginx alpine，提供 web/
+docker-compose.yml  一行起服務
+docs/               README 用的截圖
 ```
 
 ## 免責
