@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSCP 靶機作戰台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- APP:START -->
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <span class="eyebrow">Proving Grounds</span>
+      <h1>靶機作戰台</h1>
+    </div>
+    <nav class="nav" id="nav">
+      <button data-view="overview" aria-current="true"><span class="glyph">◈</span>總覽</button>
+      <button data-view="machines"><span class="glyph">▤</span>靶機清單<span class="count" id="nav-count-machines"></span></button>
+      <button data-view="draw"><span class="glyph">◎</span>抽靶機</button>
+      <button data-view="schedule"><span class="glyph">▦</span>排程<span class="count" id="nav-count-sched"></span></button>
+      <button data-view="data"><span class="glyph">↯</span>資料</button>
+    </nav>
+    <div class="rail-foot">
+      <div class="mini-progress">
+        <div class="row"><span class="eyebrow">必練 PG Practice</span></div>
+        <div class="row"><strong id="rail-pg">0 / 0</strong><span class="mono" id="rail-pg-pct" style="color:var(--ink-3);font-size:12px"></span></div>
+        <div class="bar"><span class="done" id="rail-pg-bar" style="width:0%"></span></div>
+      </div>
+      <button class="btn ghost sm" id="theme-toggle" style="align-self:flex-start">切換佈景</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- 總覽 -->
+    <section class="view is-active" id="view-overview">
+      <div class="view-head">
+        <div>
+          <span class="eyebrow">LainKusanagi OSCP-like machines</span>
+          <h2>總覽</h2>
+          <p>Proving Grounds Practice 是必練清單，先把它打完再擴散到其他平台。</p>
+        </div>
+        <button class="btn primary" data-goto="draw">抽一台來打 →</button>
+      </div>
+
+      <div class="hero">
+        <div class="focus-card">
+          <div class="ring" id="pg-ring"></div>
+          <div class="copy">
+            <span class="eyebrow">必修進度</span>
+            <h3>Proving Grounds Practice</h3>
+            <p id="pg-summary"></p>
+            <div class="meta" id="pg-breakdown" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          </div>
+        </div>
+        <div class="stat-grid" id="stat-grid"></div>
+      </div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="panel-head"><h3>各平台進度</h3><span class="result-line" id="platform-scope">OSCP 清單</span></div>
+          <div class="platform-list" id="platform-list"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="panel">
+            <div class="panel-head"><h3>今天的排程</h3><button class="btn ghost sm" data-goto="schedule">安排 →</button></div>
+            <ul class="feed" id="today-list"></ul>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3 id="recent-title">最近完成</h3></div>
+            <ul class="feed" id="recent-list"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 靶機清單 -->
+    <section class="view" id="view-machines">
+      <div class="view-head">
+        <div>
+          <span class="eyebrow">445 台靶機</span>
+          <h2>靶機清單</h2>
+          <p>點一列展開，記錄狀態、耗時、難度與筆記。</p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <span class="glyph">⌕</span>
+          <input type="search" id="q" placeholder="搜尋靶機名稱…　按 / 聚焦">
+        </div>
+        <div class="seg" id="track-seg">
+          <button data-track="OSCP" aria-pressed="true">OSCP</button>
+          <button data-track="Red Team" aria-pressed="false">Red Team</button>
+          <button data-track="all" aria-pressed="false">全部</button>
+        </div>
+        <select id="f-platform"></select>
+        <select id="f-os">
+          <option value="">全部系統</option>
+          <option value="Linux">Linux</option>
+          <option value="Windows">Windows</option>
+          <option value="Active Directory and Networks">AD / 網段</option>
+        </select>
+        <select id="f-status">
+          <option value="">全部狀態</option>
+          <option value="todo">未開始</option>
+          <option value="active">進行中</option>
+          <option value="done">已完成</option>
+          <option value="stuck">卡關</option>
+        </select>
+        <label class="toggle"><input type="checkbox" id="f-required">只看必練</label>
+      </div>
+
+      <div class="result-line" id="result-line"></div>
+      <div class="table" id="table"></div>
+    </section>
+
+    <!-- 抽靶機 -->
+    <section class="view" id="view-draw">
+      <div class="view-head">
+        <div>
+          <span class="eyebrow">Random target</span>
+          <h2>抽靶機</h2>
+          <p>從候選池隨機挑一台。預設鎖定 PG Practice 未完成的機器，模擬考試當下遇到陌生靶機的感覺。</p>
+        </div>
+      </div>
+
+      <div class="draw-layout">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="toolbar">
+            <div class="seg" id="draw-scope">
+              <button data-scope="required" aria-pressed="true">必練 PG</button>
+              <button data-scope="oscp" aria-pressed="false">OSCP 全部</button>
+              <button data-scope="filter" aria-pressed="false">沿用清單篩選</button>
+            </div>
+            <select id="draw-os">
+              <option value="">不限系統</option>
+              <option value="Linux">Linux</option>
+              <option value="Windows">Windows</option>
+              <option value="Active Directory and Networks">AD / 網段</option>
+            </select>
+            <label class="toggle"><input type="checkbox" id="draw-skip-done" checked>排除已完成</label>
+          </div>
+
+          <div class="slot" id="slot">
+            <span class="eyebrow" id="slot-eyebrow">候選池就緒</span>
+            <div class="reel mono" id="reel">— — —</div>
+            <div class="meta" id="slot-meta"></div>
+            <p class="hint" id="slot-hint">按下「抽一台」開始。</p>
+            <div class="actions" id="slot-actions">
+              <button class="btn primary" id="btn-draw">抽一台</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="panel">
+            <div class="panel-head"><h3>候選池</h3></div>
+            <div class="pool-note" id="pool-note"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>抽過的</h3><button class="btn ghost sm" id="clear-history">清除</button></div>
+            <ul class="history" id="draw-history"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 排程 -->
+    <section class="view" id="view-schedule">
+      <div class="view-head">
+        <div>
+          <span class="eyebrow">Weekly plan</span>
+          <h2>排程</h2>
+          <p>把靶機排進日子裡。一台 PG 機器抓 2–4 小時，一週排 4–6 台是可持續的節奏。</p>
+        </div>
+        <div class="week-nav">
+          <button class="btn sm" id="week-prev">←</button>
+          <span class="mono" id="week-label"></span>
+          <button class="btn sm" id="week-next">→</button>
+          <button class="btn sm" id="week-today">本週</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="assign-bar">
+          <input type="date" id="assign-date" class="btn" style="font-family:'IBM Plex Mono',monospace">
+          <select id="assign-machine"></select>
+          <button class="btn primary" id="assign-add">排入</button>
+          <button class="btn" id="assign-auto">自動排本週 5 台</button>
+        </div>
+      </div>
+
+      <div class="week-grid" id="week-grid"></div>
+    </section>
+
+    <!-- 資料 -->
+    <section class="view" id="view-data">
+      <div class="view-head">
+        <div>
+          <span class="eyebrow">Local storage</span>
+          <h2>資料</h2>
+          <p>進度只存在這台瀏覽器。換裝置或清快取前先匯出備份。</p>
+        </div>
+      </div>
+      <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <div class="data-actions">
+          <button class="btn primary" id="btn-export">匯出到下方</button>
+          <button class="btn" id="btn-copy">複製 JSON</button>
+          <button class="btn" id="btn-import">從下方匯入</button>
+          <button class="btn" id="btn-reset" style="color:var(--stuck)">清除全部進度</button>
+        </div>
+        <textarea class="io-area mono" id="io" placeholder="匯出的 JSON 會出現在這裡；也可以貼上備份後按「從下方匯入」。"></textarea>
+        <p class="result-line" id="storage-line"></p>
+      </div>
+      <div class="panel">
+        <h3>清單來源</h3>
+        <p style="color:var(--ink-2);margin:0 0 8px">
+          資料整理自 LainKusanagi 的 OSCP-like machines 清單（含 Red Teaming 分頁），共 445 筆。
+          必練標記給的是 OSCP 分頁的 Proving Grounds Practice 區塊。
+        </p>
+        <p class="result-line" id="source-line"></p>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<!-- APP:END -->
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
