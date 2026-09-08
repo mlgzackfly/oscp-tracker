@@ -795,7 +795,7 @@ function renderPlan() {
   const target = exam || end;
 
   if (!target) {
-    host.innerHTML = `<div class="plan empty">
+    host.innerHTML = `<div class="plan is-empty">
       <div>
         <span class="eyebrow">備考期程</span>
         <p>設定開始、考試與方案到期日，就能看到時間走得多快、練習跟不跟得上。</p>
