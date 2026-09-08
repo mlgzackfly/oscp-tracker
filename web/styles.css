@@ -302,7 +302,12 @@ button { cursor: pointer; }
 .note-item:hover { background: var(--surface-2); }
 .note-item[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
 .note-item .nhead { display: flex; align-items: center; gap: 7px; }
-.note-item .dot.noted { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px currentColor; }
+.note-item .dot.note-draft { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--ink-3); }
+.note-item .dot.note-done { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--accent); }
+.note-item .nflag { font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; }
+.note-item .nflag.done { color: var(--accent); background: var(--accent-soft); }
+.note-item .nflag.draft { color: var(--ink-3); background: var(--todo-soft); font-weight: 500; }
+.note-editor .btn.done { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
 .note-item .nname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-item .nmeta { font-size: 11px; color: var(--ink-3); font-family: "IBM Plex Mono", monospace; margin-left: auto; }
 .note-item .npeek {

@@ -313,7 +313,12 @@ button { cursor: pointer; }
 .note-item:hover { background: var(--surface-2); }
 .note-item[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
 .note-item .nhead { display: flex; align-items: center; gap: 7px; }
-.note-item .dot.noted { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px currentColor; }
+.note-item .dot.note-draft { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--ink-3); }
+.note-item .dot.note-done { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--accent); }
+.note-item .nflag { font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; }
+.note-item .nflag.done { color: var(--accent); background: var(--accent-soft); }
+.note-item .nflag.draft { color: var(--ink-3); background: var(--todo-soft); font-weight: 500; }
+.note-editor .btn.done { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
 .note-item .nname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-item .nmeta { font-size: 11px; color: var(--ink-3); font-family: "IBM Plex Mono", monospace; margin-left: auto; }
 .note-item .npeek {
@@ -7116,6 +7121,7 @@ function buildMarkdown() {
     worked.forEach((m) => {
       const e = peek(m.id);
       const facts = [STATUSES[e.status]];
+      if (e.notes && !e.noteDone) facts.push("筆記草稿");
       if (e.doneAt) facts.push(e.doneAt.slice(0, 10));
       if (e.minutes) facts.push(`${e.minutes} 分鐘`);
       if (e.rating) facts.push(`自評 ${e.rating}`);
@@ -8037,7 +8043,7 @@ function detailHtml(m) {
       <div class="field wide">
         <label>筆記</label>
         <div style="display:flex;gap:10px;align-items:center">
-          <span class="result-line" style="flex:1">${e.notes ? esc(e.notes.split("\n").find((l) => l.trim() && !l.startsWith("#"))?.trim().slice(0, 60) || (e.notes.length + " 字")) : "還沒寫筆記"}</span>
+          <span class="result-line" style="flex:1">${noteSummary(e)}</span>
           <button type="button" class="btn sm" data-act="edit-note" data-id="${esc(m.id)}">${e.notes ? "編輯筆記 →" : "寫筆記 →"}</button>
         </div>
       </div>
@@ -8418,17 +8424,29 @@ function renderMarkdown(src) {
   return html.join("");
 }
 
+function noteFirstLine(notes) {
+  const line = (notes || "").split("\n").find((l) => l.trim() && !l.startsWith("#"));
+  return line ? line.trim() : "";
+}
+
+function noteSummary(e) {
+  if (!e.notes) return "還沒寫筆記";
+  const first = noteFirstLine(e.notes) || e.notes.length + " 字";
+  const prefix = e.noteDone ? "✓ " : "草稿 · ";
+  return prefix + esc(first.slice(0, 50));
+}
+
 function noteMachines() {
   const q = ui.noteQ.trim().toLowerCase();
   return MACHINES.filter((m) => {
     const e = peek(m.id);
-    if (e.status === "todo" && !e.notes && !(e.phases || []).length) return false;
+    if (!e.notes) return false;
     if (!q) return true;
-    return m.name.toLowerCase().includes(q) || (e.notes || "").toLowerCase().includes(q);
+    return m.name.toLowerCase().includes(q) || e.notes.toLowerCase().includes(q);
   }).sort((a, b) => {
     const ea = peek(a.id);
     const eb = peek(b.id);
-    if (!!eb.notes !== !!ea.notes) return eb.notes ? 1 : -1;
+    if (!!eb.noteDone !== !!ea.noteDone) return ea.noteDone ? 1 : -1;
     return (eb.updatedAt || "").localeCompare(ea.updatedAt || "");
   });
 }
@@ -8457,15 +8475,16 @@ function renderNotes() {
           const first = (e.notes || "").split("\n").find((l) => l.trim() && !l.startsWith("#"));
           return `<button class="note-item" data-act="pick-note" data-id="${esc(m.id)}" aria-current="${ui.noteId === m.id}">
             <span class="nhead">
-              <span class="dot ${e.status}${e.notes ? " noted" : ""}" title="${e.notes ? "已寫筆記 · " : ""}${STATUSES[e.status]}"></span>
+              <span class="dot ${e.status}${e.notes ? (e.noteDone ? " note-done" : " note-draft") : ""}" title="${e.notes ? (e.noteDone ? "筆記完成 · " : "草稿 · ") : ""}${STATUSES[e.status]}"></span>
               <span class="nname">${esc(m.name)}</span>
+              ${e.notes && e.noteDone ? '<span class="nflag done">✓</span>' : e.notes ? '<span class="nflag draft">草稿</span>' : ""}
               <span class="nmeta">${e.minutes ? e.minutes + "m" : ""}</span>
             </span>
             <span class="npeek${first ? "" : " blank"}">${first ? esc(first.trim().slice(0, 40)) : "還沒寫筆記"}</span>
           </button>`;
         })
         .join("")
-    : `<p class="empty" style="padding:20px;text-align:center">還沒有動過的靶機。標一台進行中，或用右上角的下拉直接挑一台開始寫。</p>`;
+    : `<p class="empty" style="padding:20px;text-align:center">還沒有筆記。用右上角的下拉挑一台靶機開始寫。</p>`;
 
   const m = ui.noteId ? BY_ID.get(ui.noteId) : null;
   if (!m) {
@@ -8504,7 +8523,8 @@ function renderNotes() {
       ${ui.noteMode === "write" && !e.notes ? `<button class="btn sm" data-act="template" data-id="${esc(m.id)}">插入模板</button>` : ""}
       <span class="right">
         <span class="result-line">${e.notes ? e.notes.length + " 字" : "支援 Markdown"}</span>
-        ${e.notes ? `<button class="btn sm" data-act="delete-note" data-id="${esc(m.id)}" style="color:var(--stuck)">刪除筆記</button>` : ""}
+        ${e.notes ? `<button class="btn sm${e.noteDone ? " done" : ""}" data-act="note-done" data-id="${esc(m.id)}" aria-pressed="${!!e.noteDone}">${e.noteDone ? "已完成 ✓" : "標記完成"}</button>` : ""}
+        ${e.notes ? `<button class="btn sm" data-act="delete-note" data-id="${esc(m.id)}" style="color:var(--stuck)">刪除</button>` : ""}
       </span>
     </div>
 
@@ -8534,8 +8554,11 @@ function render() {
   if (ui.view === "draw") renderPool();
   if (ui.view === "schedule") renderSchedule();
   if (ui.view === "notes") renderNotes();
-  const noteCount = Object.values(state.entries).filter((e) => e.notes).length;
-  $("#nav-count-notes").textContent = noteCount || "";
+  const withNotes = Object.values(state.entries).filter((e) => e.notes);
+  const doneNotes = withNotes.filter((e) => e.noteDone).length;
+  let noteLabel = "";
+  if (withNotes.length) noteLabel = doneNotes < withNotes.length ? doneNotes + "/" + withNotes.length : String(withNotes.length);
+  $("#nav-count-notes").textContent = noteLabel;
 }
 
 function setView(name) {
@@ -8639,13 +8662,25 @@ document.addEventListener("click", (ev) => {
     return renderNotes();
   }
 
+  const noteDone = ev.target.closest('[data-act="note-done"]');
+  if (noteDone) {
+    const e = entry(noteDone.dataset.id);
+    e.noteDone = !e.noteDone;
+    save();
+    renderNotes();
+    renderMachines();
+    return toast(e.noteDone ? "已標記為完成" : "改回草稿");
+  }
+
   const delNote = ev.target.closest('[data-act="delete-note"]');
   if (delNote) {
     const m = BY_ID.get(delNote.dataset.id);
     if (!confirm(`刪除「${m.name}」的筆記？狀態、耗時與卡關標記會保留，只清掉筆記文字。`)) return;
     const e = entry(delNote.dataset.id);
     e.notes = "";
+    e.noteDone = false;
     ui.noteMode = "write";
+    ui.noteId = null;
     save();
     renderNotes();
     renderMachines();
