@@ -7,6 +7,7 @@ from pathlib import Path
 import openpyxl
 
 SRC = Path("data/lainkusanagi.xlsx")
+LABS = Path("data/offsec_labs.tsv")
 OUT_JSON = Path("data/machines.json")
 OUT_JS = Path("web/data.js")
 
@@ -101,6 +102,21 @@ def block_end(rows, header_idx, cols):
     return len(rows)
 
 
+LEVELS = {"100": "Fundamental", "200": "Intermediate", "300": "Advanced", "400": "Insane"}
+
+
+def offsec_labs():
+    """Difficulty ratings scraped from the OffSec portal, keyed by squashed name."""
+    if not LABS.exists():
+        return {}
+    table = {}
+    for line in LABS.read_text().splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 5:
+            table[parts[0].lower().replace(" ", "")] = parts
+    return table
+
+
 def main():
     wb = openpyxl.load_workbook(SRC, data_only=True)
     entries = []
@@ -128,11 +144,26 @@ def main():
         entry["required"] = entry["track"] == "OSCP" and entry["platform"] == "Proving Grounds Practice"
         machines.append(entry)
 
+    labs = offsec_labs()
+    matched = 0
+    for m in machines:
+        # Only Proving Grounds shares a namespace with the portal; HTB reuses names like Access.
+        if "Proving Grounds" not in m["platform"]:
+            continue
+        row = labs.get(m["name"].lower().replace(" ", ""))
+        if not row:
+            continue
+        matched += 1
+        m["level"] = row[1]
+        m["difficulty"] = LEVELS.get(row[1], row[1])
+        m["labType"] = row[3]
+        m["offsecId"] = row[4]
+
     payload = {"source": "LainKusanagi OSCP-like machines list", "machines": machines}
     OUT_JSON.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
     OUT_JS.write_text("window.OSCP_DATA = " + json.dumps(payload, ensure_ascii=False, indent=2) + ";\n")
 
-    print(f"total {len(machines)}")
+    print(f"total {len(machines)} · 難度已標記 {matched}")
     from collections import Counter
     for track in ("OSCP", "Red Team"):
         counts = Counter(m["platform"] for m in machines if m["track"] == track)

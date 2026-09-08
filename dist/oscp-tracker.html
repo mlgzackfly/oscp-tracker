@@ -346,7 +346,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 .table { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .table-head, .row {
   display: grid;
-  grid-template-columns: 22px minmax(140px, 1.6fr) minmax(120px, 1fr) 108px minmax(90px, .8fr) 128px;
+  grid-template-columns: 22px minmax(120px, 1.4fr) minmax(100px, .9fr) 100px 132px minmax(80px, .7fr) 128px;
   gap: 12px;
   align-items: center;
   padding: 9px 14px;
@@ -523,13 +523,14 @@ ul { list-style: none; margin: 0; padding: 0; }
   .hero, .split, .draw-layout { grid-template-columns: minmax(0, 1fr); }
   .week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .table-head { display: none; }
-  .row { grid-template-columns: 18px minmax(0, 1fr) auto; grid-template-areas: "d t s" ". p s" ". g g"; row-gap: 4px; }
+  .row { grid-template-columns: 18px minmax(0, 1fr) auto; grid-template-areas: "d t s" ". p s" ". g g" ". x x"; row-gap: 4px; }
   .row .dot { grid-area: d; }
   .row .title { grid-area: t; }
   .row .platform { grid-area: p; }
-  .row .tags { grid-area: g; }
+  .row .tags { grid-area: x; }
   .row .status-cell { grid-area: s; }
   .row .os-cell, .row .section-cell { display: none; }
+  .row .lvl-cell { grid-area: g; }
   .detail { padding-left: 14px; }
 }
 
@@ -561,6 +562,37 @@ ul { list-style: none; margin: 0; padding: 0; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- difficulty meter ---------- */
+
+.lvl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.lvl .bars { display: inline-flex; gap: 2px; align-items: flex-end; }
+.lvl i {
+  display: block;
+  width: 4px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--todo-soft);
+  border: 1px solid var(--line);
+}
+.lvl i.on { background: var(--ink-2); border-color: var(--ink-2); }
+.lvl[data-lv="100"] i.on { background: var(--done); border-color: var(--done); }
+.lvl[data-lv="300"] i.on,
+.lvl[data-lv="400"] i.on { background: var(--stuck); border-color: var(--stuck); }
+.lvl.unknown { color: var(--ink-3); }
+
+.lvl-legend { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 10px; margin-top: 2px; border-top: 1px dashed var(--line); }
+
+.lvl-item { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; }
+.lvl-item b { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.slot .chip .lvl { font-size: 11.5px; }
 </style>
 
 <div class="shell">
@@ -606,6 +638,7 @@ ul { list-style: none; margin: 0; padding: 0; }
             <h3>Proving Grounds Practice</h3>
             <p id="pg-summary"></p>
             <div class="meta" id="pg-breakdown" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            <div class="lvl-legend" id="pg-levels"></div>
           </div>
         </div>
         <div class="stat-grid" id="stat-grid"></div>
@@ -656,6 +689,13 @@ ul { list-style: none; margin: 0; padding: 0; }
           <option value="Windows">Windows</option>
           <option value="Active Directory and Networks">AD / 網段</option>
         </select>
+        <select id="f-level">
+          <option value="">全部難度</option>
+          <option value="100">Fundamental</option>
+          <option value="200">Intermediate</option>
+          <option value="300">Advanced</option>
+          <option value="400">Insane</option>
+        </select>
         <select id="f-status">
           <option value="">全部狀態</option>
           <option value="todo">未開始</option>
@@ -693,6 +733,12 @@ ul { list-style: none; margin: 0; padding: 0; }
               <option value="Linux">Linux</option>
               <option value="Windows">Windows</option>
               <option value="Active Directory and Networks">AD / 網段</option>
+            </select>
+            <select id="draw-level">
+              <option value="">不限難度</option>
+              <option value="100">Fundamental</option>
+              <option value="200">Intermediate</option>
+              <option value="300">Advanced</option>
             </select>
             <label class="toggle"><input type="checkbox" id="draw-skip-done" checked>排除已完成</label>
           </div>
@@ -1663,7 +1709,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|ClamAV",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "179"
     },
     {
       "sheet": "OSCP List",
@@ -1674,7 +1724,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Kevin",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "189"
     },
     {
       "sheet": "OSCP List",
@@ -1685,7 +1739,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Access",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "38168"
     },
     {
       "sheet": "OSCP List",
@@ -1696,7 +1754,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Pelican",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "440"
     },
     {
       "sheet": "OSCP List",
@@ -1707,7 +1769,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Internal",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "169"
     },
     {
       "sheet": "OSCP List",
@@ -1718,7 +1784,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Nagoya",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "50426"
     },
     {
       "sheet": "OSCP List",
@@ -1729,7 +1799,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Payday",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "164"
     },
     {
       "sheet": "OSCP List",
@@ -1740,7 +1814,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Algernon",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "239"
     },
     {
       "sheet": "OSCP List",
@@ -1762,7 +1840,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Snookums",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "294"
     },
     {
       "sheet": "OSCP List",
@@ -1773,7 +1855,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Jacko",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "264"
     },
     {
       "sheet": "OSCP List",
@@ -1784,7 +1870,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Vault",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "33015"
     },
     {
       "sheet": "OSCP List",
@@ -1795,7 +1885,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Bratarina",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "159"
     },
     {
       "sheet": "OSCP List",
@@ -1806,7 +1900,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Craft",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "28375"
     },
     {
       "sheet": "OSCP List",
@@ -1817,7 +1915,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Pebbles",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "304"
     },
     {
       "sheet": "OSCP List",
@@ -1828,7 +1930,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Squid",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "38173"
     },
     {
       "sheet": "OSCP List",
@@ -1839,7 +1945,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Nibbles",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "209"
     },
     {
       "sheet": "OSCP List",
@@ -1850,7 +1960,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Nickel",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "452"
     },
     {
       "sheet": "OSCP List",
@@ -1861,7 +1975,11 @@ window.OSCP_DATA = {
       "note": "Linux",
       "id": "oscp|Proving Grounds Practice|SkillForge",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "211143"
     },
     {
       "sheet": "OSCP List",
@@ -1872,7 +1990,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Hetemit",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "527"
     },
     {
       "sheet": "OSCP List",
@@ -1883,7 +2005,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|MedJed",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "589"
     },
     {
       "sheet": "OSCP List",
@@ -1894,7 +2020,11 @@ window.OSCP_DATA = {
       "note": "Linux",
       "id": "oscp|Proving Grounds Practice|Tux",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "245238"
     },
     {
       "sheet": "OSCP List",
@@ -1905,7 +2035,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|ZenPhoto",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "174"
     },
     {
       "sheet": "OSCP List",
@@ -1916,7 +2050,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Billyboss",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "259"
     },
     {
       "sheet": "OSCP List",
@@ -1927,7 +2065,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Nukem",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "457"
     },
     {
       "sheet": "OSCP List",
@@ -1938,7 +2080,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Shenzi",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "284"
     },
     {
       "sheet": "OSCP List",
@@ -1949,7 +2095,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Cockpit",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "49474"
     },
     {
       "sheet": "OSCP List",
@@ -1960,7 +2110,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|AuthBy",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "199"
     },
     {
       "sheet": "OSCP List",
@@ -1971,7 +2125,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Hutch",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "604"
     },
     {
       "sheet": "OSCP List",
@@ -1982,7 +2140,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Clue",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "43691"
     },
     {
       "sheet": "OSCP List",
@@ -1993,7 +2155,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Slort",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "269"
     },
     {
       "sheet": "OSCP List",
@@ -2004,7 +2170,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Resourced",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "36043"
     },
     {
       "sheet": "OSCP List",
@@ -2015,7 +2185,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Extplorer",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "49489"
     },
     {
       "sheet": "OSCP List",
@@ -2026,7 +2200,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Hepet",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "11601"
     },
     {
       "sheet": "OSCP List",
@@ -2037,7 +2215,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Postfish",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "639"
     },
     {
       "sheet": "OSCP List",
@@ -2048,7 +2230,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|DVR4",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "36048"
     },
     {
       "sheet": "OSCP List",
@@ -2059,7 +2245,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Hawat",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "15710"
     },
     {
       "sheet": "OSCP List",
@@ -2081,7 +2271,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Walla",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "619"
     },
     {
       "sheet": "OSCP List",
@@ -2092,7 +2286,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Monster",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "37024"
     },
     {
       "sheet": "OSCP List",
@@ -2103,7 +2301,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Pathway",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "208461"
     },
     {
       "sheet": "OSCP List",
@@ -2114,7 +2316,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|PC",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "52193"
     },
     {
       "sheet": "OSCP List",
@@ -2125,7 +2331,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Fish",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "27733"
     },
     {
       "sheet": "OSCP List",
@@ -2136,7 +2346,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Apex",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "15705"
     },
     {
       "sheet": "OSCP List",
@@ -2147,7 +2361,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Sorcerer",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "472"
     },
     {
       "sheet": "OSCP List",
@@ -2158,7 +2376,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Sybaris",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "430"
     },
     {
       "sheet": "OSCP List",
@@ -2169,7 +2391,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Peppo",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "249"
     },
     {
       "sheet": "OSCP List",
@@ -2180,7 +2406,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Hunit",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "574"
     },
     {
       "sheet": "OSCP List",
@@ -2191,7 +2421,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Readys",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "32746"
     },
     {
       "sheet": "OSCP List",
@@ -2202,7 +2436,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Astronaut",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "49479"
     },
     {
       "sheet": "OSCP List",
@@ -2213,7 +2451,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Bullybox",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "52203"
     },
     {
       "sheet": "OSCP List",
@@ -2224,7 +2466,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Marketing",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "40967"
     },
     {
       "sheet": "OSCP List",
@@ -2235,7 +2481,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Exfiltrated",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "17398"
     },
     {
       "sheet": "OSCP List",
@@ -2246,7 +2496,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Fanatastic",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "37029"
     },
     {
       "sheet": "OSCP List",
@@ -2257,7 +2511,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|QuackerJack",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "274"
     },
     {
       "sheet": "OSCP List",
@@ -2268,7 +2526,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Wombo",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "219"
     },
     {
       "sheet": "OSCP List",
@@ -2279,7 +2541,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Flu",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "150748"
     },
     {
       "sheet": "OSCP List",
@@ -2290,7 +2556,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Roquefort",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "229"
     },
     {
       "sheet": "OSCP List",
@@ -2301,7 +2571,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Levram",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "50411"
     },
     {
       "sheet": "OSCP List",
@@ -2312,7 +2586,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Mzeeav",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "150716"
     },
     {
       "sheet": "OSCP List",
@@ -2323,7 +2601,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|LaVita",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "150736"
     },
     {
       "sheet": "OSCP List",
@@ -2334,7 +2616,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Xposedapi",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "624"
     },
     {
       "sheet": "OSCP List",
@@ -2345,7 +2631,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Zipper",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "42231"
     },
     {
       "sheet": "OSCP List",
@@ -2356,7 +2646,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Workaholic",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "211082"
     },
     {
       "sheet": "OSCP List",
@@ -2367,7 +2661,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Fired",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "183351"
     },
     {
       "sheet": "OSCP List",
@@ -2378,7 +2676,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Scrutiny",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "182260"
     },
     {
       "sheet": "OSCP List",
@@ -2389,7 +2691,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|SPX",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "185717"
     },
     {
       "sheet": "OSCP List",
@@ -2400,7 +2706,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Vmdak",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "185278"
     },
     {
       "sheet": "OSCP List",
@@ -2411,7 +2721,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Mantis",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "38803"
     },
     {
       "sheet": "OSCP List",
@@ -2422,7 +2736,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|BitForge",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "191804"
     },
     {
       "sheet": "OSCP List",
@@ -2433,7 +2751,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|WallpaperHub",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "192392"
     },
     {
       "sheet": "OSCP List",
@@ -2444,7 +2766,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Zab",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "207758"
     },
     {
       "sheet": "OSCP List",
@@ -2455,7 +2781,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|SpiderSociety",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "208506"
     },
     {
       "sheet": "OSCP List",
@@ -2466,7 +2796,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|Flink",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "213582"
     },
     {
       "sheet": "OSCP List",
@@ -2477,7 +2811,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Practice|DevArmor",
       "track": "OSCP",
-      "required": true
+      "required": true,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "242016"
     },
     {
       "sheet": "OSCP List",
@@ -3445,7 +3783,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|Amaterasu",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "49068"
     },
     {
       "sheet": "OSCP List",
@@ -3467,7 +3809,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|Loly",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "532"
     },
     {
       "sheet": "OSCP List",
@@ -3478,7 +3824,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|Potato",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "445"
     },
     {
       "sheet": "OSCP List",
@@ -3489,7 +3839,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|Stapler",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "15769"
     },
     {
       "sheet": "OSCP List",
@@ -3500,7 +3854,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|BBScute",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "579"
     },
     {
       "sheet": "OSCP List",
@@ -3511,7 +3869,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|Gaara",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "664"
     },
     {
       "sheet": "OSCP List",
@@ -3522,7 +3884,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|Blogger",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "40267"
     },
     {
       "sheet": "OSCP List",
@@ -3533,7 +3899,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|FunboxEasyEnum",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "609"
     },
     {
       "sheet": "OSCP List",
@@ -3544,7 +3914,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "oscp|Proving Grounds Play|GlasgowSmile",
       "track": "OSCP",
-      "required": false
+      "required": false,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "374"
     },
     {
       "sheet": "OSCP List",
@@ -4853,7 +5227,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Postfish",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "639"
     },
     {
       "sheet": "Red Teaming List",
@@ -4864,7 +5242,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Kevin",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "189"
     },
     {
       "sheet": "Red Teaming List",
@@ -4875,7 +5257,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Access",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "38168"
     },
     {
       "sheet": "Red Teaming List",
@@ -4886,7 +5272,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Thor",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "39638"
     },
     {
       "sheet": "Red Teaming List",
@@ -4897,7 +5287,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Butch",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "299"
     },
     {
       "sheet": "Red Teaming List",
@@ -4908,7 +5302,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Resourced",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "36043"
     },
     {
       "sheet": "Red Teaming List",
@@ -4919,7 +5317,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Megavolt",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "512"
     },
     {
       "sheet": "Red Teaming List",
@@ -4930,7 +5332,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Craft",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "28375"
     },
     {
       "sheet": "Red Teaming List",
@@ -4941,7 +5347,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Nagoya",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "50426"
     },
     {
       "sheet": "Red Teaming List",
@@ -4952,7 +5362,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Craft2",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "38075"
     },
     {
       "sheet": "Red Teaming List",
@@ -4974,7 +5388,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Hepet",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "11601"
     },
     {
       "sheet": "Red Teaming List",
@@ -4985,7 +5403,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Heist",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "27692"
     },
     {
       "sheet": "Red Teaming List",
@@ -4996,7 +5418,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Vector",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "564"
     },
     {
       "sheet": "Red Teaming List",
@@ -5007,7 +5433,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Nara",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "52218"
     },
     {
       "sheet": "Red Teaming List",
@@ -5018,7 +5448,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Symbolic",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "38080"
     },
     {
       "sheet": "Red Teaming List",
@@ -5029,7 +5463,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Vault",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "300",
+      "difficulty": "Advanced",
+      "labType": "host",
+      "offsecId": "33015"
     },
     {
       "sheet": "Red Teaming List",
@@ -5040,7 +5478,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Monster",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "37024"
     },
     {
       "sheet": "Red Teaming List",
@@ -5051,7 +5493,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Hutch",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "604"
     },
     {
       "sheet": "Red Teaming List",
@@ -5062,7 +5508,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Compromised",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "100",
+      "difficulty": "Fundamental",
+      "labType": "host",
+      "offsecId": "17336"
     },
     {
       "sheet": "Red Teaming List",
@@ -5073,7 +5523,11 @@ window.OSCP_DATA = {
       "note": "has Buffer overflow",
       "id": "redteam|Proving Grounds Practice|Kyoto",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "52223"
     },
     {
       "sheet": "Red Teaming List",
@@ -5084,7 +5538,11 @@ window.OSCP_DATA = {
       "note": null,
       "id": "redteam|Proving Grounds Practice|Pathway",
       "track": "Red Team",
-      "required": false
+      "required": false,
+      "level": "200",
+      "difficulty": "Intermediate",
+      "labType": "host",
+      "offsecId": "208461"
     },
     {
       "sheet": "Red Teaming List",
@@ -5692,7 +6150,17 @@ const OS_LABEL = { Linux: "Linux", Windows: "Windows", "Active Directory and Net
 const REQUIRED = MACHINES.filter((m) => m.required);
 
 let state = { entries: {}, history: [], theme: null };
-let ui = { view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", requiredOnly: false, open: null, scope: "required", drawOs: "", skipDone: true, weekOffset: 0, current: null };
+let ui = { view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
+
+const LEVEL_ORDER = ["100", "200", "300", "400"];
+const LEVEL_NAME = { 100: "Fundamental", 200: "Intermediate", 300: "Advanced", 400: "Insane" };
+
+function levelMeter(m) {
+  if (!m.level) return '<span class="lvl unknown" title="OffSec portal 沒有這台的難度資料">—</span>';
+  const filled = LEVEL_ORDER.indexOf(m.level) + 1;
+  const bars = LEVEL_ORDER.map((_, i) => `<i class="${i < filled ? "on" : ""}"></i>`).join("");
+  return `<span class="lvl" data-lv="${m.level}" title="OffSec 難度：${m.difficulty}"><span class="bars">${bars}</span>${m.difficulty}</span>`;
+}
 
 /* ---------- storage ---------- */
 
@@ -5767,6 +6235,7 @@ function filtered() {
     if (ui.platform && m.platform !== ui.platform) return false;
     if (ui.os && m.category !== ui.os) return false;
     if (ui.status && statusOf(m.id) !== ui.status) return false;
+    if (ui.level && m.level !== ui.level) return false;
     if (q && !(m.name.toLowerCase().includes(q) || m.platform.toLowerCase().includes(q))) return false;
     return true;
   });
@@ -5778,6 +6247,7 @@ function drawPool() {
   else if (ui.scope === "oscp") pool = trackPool("OSCP");
   else pool = filtered();
   if (ui.drawOs) pool = pool.filter((m) => m.category === ui.drawOs);
+  if (ui.drawLevel) pool = pool.filter((m) => m.level === ui.drawLevel);
   if (ui.skipDone) pool = pool.filter((m) => statusOf(m.id) !== "done");
   return pool;
 }
@@ -5825,6 +6295,23 @@ function renderOverview() {
     byOs[m.category].total += 1;
     if (statusOf(m.id) === "done") byOs[m.category].done += 1;
   });
+  const byLevel = {};
+  REQUIRED.forEach((m) => {
+    const key = m.level || "?";
+    byLevel[key] = byLevel[key] || { done: 0, total: 0 };
+    byLevel[key].total += 1;
+    if (statusOf(m.id) === "done") byLevel[key].done += 1;
+  });
+  $("#pg-levels").innerHTML = LEVEL_ORDER.concat("?")
+    .filter((lv) => byLevel[lv])
+    .map((lv) => {
+      const v = byLevel[lv];
+      if (lv === "?") return `<span class="lvl-item lvl unknown" title="OffSec portal 已無此靶機">未列於 portal <b class="mono">${v.done}/${v.total}</b></span>`;
+      const meter = levelMeter({ level: lv, difficulty: LEVEL_NAME[lv] });
+      return `<span class="lvl-item">${meter} <b class="mono">${v.done}/${v.total}</b></span>`;
+    })
+    .join("");
+
   $("#pg-breakdown").innerHTML = Object.entries(byOs)
     .map(([os, v]) => `<span class="chip">${esc(OS_LABEL[os] || os)} <b class="mono">${v.done}/${v.total}</b></span>`)
     .join("");
@@ -5916,6 +6403,7 @@ function rowHtml(m) {
       <span class="title"><span class="n">${esc(m.name)}</span></span>
       <span class="platform">${esc(shortPlatform(m.platform))}</span>
       <span class="os-cell chip">${esc(OS_LABEL[m.category] || m.category)}</span>
+      <span class="lvl-cell">${levelMeter(m)}</span>
       <span class="tags">${tags.join("")}</span>
       <span class="status-cell">
         <select class="status-select" data-status="${e.status}" data-act="status" data-id="${esc(m.id)}">
@@ -5948,7 +6436,7 @@ function renderMachines() {
   const done = list.filter((m) => statusOf(m.id) === "done").length;
   $("#result-line").textContent = `${list.length} 台符合條件 · 已完成 ${done} · ${pct(done, list.length)}%`;
   $("#table").innerHTML = list.length
-    ? `<div class="table-head"><span></span><span>靶機</span><span>平台</span><span>系統</span><span>標記</span><span style="text-align:right">狀態</span></div>` +
+    ? `<div class="table-head"><span></span><span>靶機</span><span>平台</span><span>系統</span><span>難度</span><span>標記</span><span style="text-align:right">狀態</span></div>` +
       list.map(rowHtml).join("")
     : '<div class="empty" style="padding:24px;text-align:center">沒有符合條件的靶機。</div>';
 }
@@ -5966,10 +6454,18 @@ function renderPlatformFilter() {
 function renderPool() {
   const pool = drawPool();
   const byOs = {};
-  pool.forEach((m) => (byOs[m.category] = (byOs[m.category] || 0) + 1));
+  const byLevel = {};
+  pool.forEach((m) => {
+    byOs[m.category] = (byOs[m.category] || 0) + 1;
+    byLevel[m.level || "?"] = (byLevel[m.level || "?"] || 0) + 1;
+  });
   $("#pool-note").innerHTML =
     `<div class="pool-stat"><span>候選總數</span><b>${pool.length}</b></div>` +
-    Object.entries(byOs).map(([os, n]) => `<div class="pool-stat"><span>${esc(OS_LABEL[os] || os)}</span><b>${n}</b></div>`).join("");
+    Object.entries(byOs).map(([os, n]) => `<div class="pool-stat"><span>${esc(OS_LABEL[os] || os)}</span><b>${n}</b></div>`).join("") +
+    LEVEL_ORDER.concat("?")
+      .filter((lv) => byLevel[lv])
+      .map((lv) => `<div class="pool-stat"><span>${lv === "?" ? "難度未知" : LEVEL_NAME[lv]}</span><b>${byLevel[lv]}</b></div>`)
+      .join("");
   $("#slot-eyebrow").textContent = pool.length ? `候選池 ${pool.length} 台` : "候選池是空的";
 
   $("#draw-history").innerHTML = state.history.length
@@ -5990,6 +6486,7 @@ function showResult(m) {
   $("#slot-meta").innerHTML = [
     `<span class="chip">${esc(shortPlatform(m.platform))}</span>`,
     `<span class="chip">${esc(OS_LABEL[m.category] || m.category)}</span>`,
+    m.level ? `<span class="chip">${levelMeter(m)}</span>` : "",
     m.required ? '<span class="chip required">必練</span>' : "",
     m.note ? `<span class="chip${/harder/i.test(m.note) ? " warn" : ""}">${esc(m.note)}</span>` : "",
     m.section ? `<span class="chip">${esc(m.section)}</span>` : "",
@@ -6075,7 +6572,7 @@ function renderSchedule() {
   const pool = REQUIRED.filter((m) => statusOf(m.id) !== "done" && !peek(m.id).date).slice(0, 400);
   $("#assign-machine").innerHTML =
     '<option value="">選一台未完成的必練靶機…</option>' +
-    pool.map((m) => `<option value="${esc(m.id)}">${esc(m.name)} — ${esc(OS_LABEL[m.category] || m.category)}</option>`).join("") +
+    pool.map((m) => `<option value="${esc(m.id)}">${esc(m.name)} — ${esc(OS_LABEL[m.category] || m.category)}${m.difficulty ? " · " + m.difficulty : ""}</option>`).join("") +
     '<optgroup label="其他 OSCP 清單">' +
     trackPool("OSCP")
       .filter((m) => !m.required && statusOf(m.id) !== "done" && !peek(m.id).date)
@@ -6200,8 +6697,10 @@ document.addEventListener("change", (ev) => {
   if (t.id === "f-platform") { ui.platform = t.value; return renderMachines(); }
   if (t.id === "f-os") { ui.os = t.value; return renderMachines(); }
   if (t.id === "f-status") { ui.status = t.value; return renderMachines(); }
+  if (t.id === "f-level") { ui.level = t.value; return renderMachines(); }
   if (t.id === "f-required") { ui.requiredOnly = t.checked; return renderMachines(); }
   if (t.id === "draw-os") { ui.drawOs = t.value; return renderPool(); }
+  if (t.id === "draw-level") { ui.drawLevel = t.value; return renderPool(); }
   if (t.id === "draw-skip-done") { ui.skipDone = t.checked; return renderPool(); }
 });
 

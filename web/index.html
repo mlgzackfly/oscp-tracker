@@ -54,6 +54,7 @@
             <h3>Proving Grounds Practice</h3>
             <p id="pg-summary"></p>
             <div class="meta" id="pg-breakdown" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            <div class="lvl-legend" id="pg-levels"></div>
           </div>
         </div>
         <div class="stat-grid" id="stat-grid"></div>
@@ -104,6 +105,13 @@
           <option value="Windows">Windows</option>
           <option value="Active Directory and Networks">AD / 網段</option>
         </select>
+        <select id="f-level">
+          <option value="">全部難度</option>
+          <option value="100">Fundamental</option>
+          <option value="200">Intermediate</option>
+          <option value="300">Advanced</option>
+          <option value="400">Insane</option>
+        </select>
         <select id="f-status">
           <option value="">全部狀態</option>
           <option value="todo">未開始</option>
@@ -141,6 +149,12 @@
               <option value="Linux">Linux</option>
               <option value="Windows">Windows</option>
               <option value="Active Directory and Networks">AD / 網段</option>
+            </select>
+            <select id="draw-level">
+              <option value="">不限難度</option>
+              <option value="100">Fundamental</option>
+              <option value="200">Intermediate</option>
+              <option value="300">Advanced</option>
             </select>
             <label class="toggle"><input type="checkbox" id="draw-skip-done" checked>排除已完成</label>
           </div>

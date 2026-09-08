@@ -6,7 +6,17 @@ const OS_LABEL = { Linux: "Linux", Windows: "Windows", "Active Directory and Net
 const REQUIRED = MACHINES.filter((m) => m.required);
 
 let state = { entries: {}, history: [], theme: null };
-let ui = { view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", requiredOnly: false, open: null, scope: "required", drawOs: "", skipDone: true, weekOffset: 0, current: null };
+let ui = { view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
+
+const LEVEL_ORDER = ["100", "200", "300", "400"];
+const LEVEL_NAME = { 100: "Fundamental", 200: "Intermediate", 300: "Advanced", 400: "Insane" };
+
+function levelMeter(m) {
+  if (!m.level) return '<span class="lvl unknown" title="OffSec portal 沒有這台的難度資料">—</span>';
+  const filled = LEVEL_ORDER.indexOf(m.level) + 1;
+  const bars = LEVEL_ORDER.map((_, i) => `<i class="${i < filled ? "on" : ""}"></i>`).join("");
+  return `<span class="lvl" data-lv="${m.level}" title="OffSec 難度：${m.difficulty}"><span class="bars">${bars}</span>${m.difficulty}</span>`;
+}
 
 /* ---------- storage ---------- */
 
@@ -81,6 +91,7 @@ function filtered() {
     if (ui.platform && m.platform !== ui.platform) return false;
     if (ui.os && m.category !== ui.os) return false;
     if (ui.status && statusOf(m.id) !== ui.status) return false;
+    if (ui.level && m.level !== ui.level) return false;
     if (q && !(m.name.toLowerCase().includes(q) || m.platform.toLowerCase().includes(q))) return false;
     return true;
   });
@@ -92,6 +103,7 @@ function drawPool() {
   else if (ui.scope === "oscp") pool = trackPool("OSCP");
   else pool = filtered();
   if (ui.drawOs) pool = pool.filter((m) => m.category === ui.drawOs);
+  if (ui.drawLevel) pool = pool.filter((m) => m.level === ui.drawLevel);
   if (ui.skipDone) pool = pool.filter((m) => statusOf(m.id) !== "done");
   return pool;
 }
@@ -139,6 +151,23 @@ function renderOverview() {
     byOs[m.category].total += 1;
     if (statusOf(m.id) === "done") byOs[m.category].done += 1;
   });
+  const byLevel = {};
+  REQUIRED.forEach((m) => {
+    const key = m.level || "?";
+    byLevel[key] = byLevel[key] || { done: 0, total: 0 };
+    byLevel[key].total += 1;
+    if (statusOf(m.id) === "done") byLevel[key].done += 1;
+  });
+  $("#pg-levels").innerHTML = LEVEL_ORDER.concat("?")
+    .filter((lv) => byLevel[lv])
+    .map((lv) => {
+      const v = byLevel[lv];
+      if (lv === "?") return `<span class="lvl-item lvl unknown" title="OffSec portal 已無此靶機">未列於 portal <b class="mono">${v.done}/${v.total}</b></span>`;
+      const meter = levelMeter({ level: lv, difficulty: LEVEL_NAME[lv] });
+      return `<span class="lvl-item">${meter} <b class="mono">${v.done}/${v.total}</b></span>`;
+    })
+    .join("");
+
   $("#pg-breakdown").innerHTML = Object.entries(byOs)
     .map(([os, v]) => `<span class="chip">${esc(OS_LABEL[os] || os)} <b class="mono">${v.done}/${v.total}</b></span>`)
     .join("");
@@ -230,6 +259,7 @@ function rowHtml(m) {
       <span class="title"><span class="n">${esc(m.name)}</span></span>
       <span class="platform">${esc(shortPlatform(m.platform))}</span>
       <span class="os-cell chip">${esc(OS_LABEL[m.category] || m.category)}</span>
+      <span class="lvl-cell">${levelMeter(m)}</span>
       <span class="tags">${tags.join("")}</span>
       <span class="status-cell">
         <select class="status-select" data-status="${e.status}" data-act="status" data-id="${esc(m.id)}">
@@ -262,7 +292,7 @@ function renderMachines() {
   const done = list.filter((m) => statusOf(m.id) === "done").length;
   $("#result-line").textContent = `${list.length} 台符合條件 · 已完成 ${done} · ${pct(done, list.length)}%`;
   $("#table").innerHTML = list.length
-    ? `<div class="table-head"><span></span><span>靶機</span><span>平台</span><span>系統</span><span>標記</span><span style="text-align:right">狀態</span></div>` +
+    ? `<div class="table-head"><span></span><span>靶機</span><span>平台</span><span>系統</span><span>難度</span><span>標記</span><span style="text-align:right">狀態</span></div>` +
       list.map(rowHtml).join("")
     : '<div class="empty" style="padding:24px;text-align:center">沒有符合條件的靶機。</div>';
 }
@@ -280,10 +310,18 @@ function renderPlatformFilter() {
 function renderPool() {
   const pool = drawPool();
   const byOs = {};
-  pool.forEach((m) => (byOs[m.category] = (byOs[m.category] || 0) + 1));
+  const byLevel = {};
+  pool.forEach((m) => {
+    byOs[m.category] = (byOs[m.category] || 0) + 1;
+    byLevel[m.level || "?"] = (byLevel[m.level || "?"] || 0) + 1;
+  });
   $("#pool-note").innerHTML =
     `<div class="pool-stat"><span>候選總數</span><b>${pool.length}</b></div>` +
-    Object.entries(byOs).map(([os, n]) => `<div class="pool-stat"><span>${esc(OS_LABEL[os] || os)}</span><b>${n}</b></div>`).join("");
+    Object.entries(byOs).map(([os, n]) => `<div class="pool-stat"><span>${esc(OS_LABEL[os] || os)}</span><b>${n}</b></div>`).join("") +
+    LEVEL_ORDER.concat("?")
+      .filter((lv) => byLevel[lv])
+      .map((lv) => `<div class="pool-stat"><span>${lv === "?" ? "難度未知" : LEVEL_NAME[lv]}</span><b>${byLevel[lv]}</b></div>`)
+      .join("");
   $("#slot-eyebrow").textContent = pool.length ? `候選池 ${pool.length} 台` : "候選池是空的";
 
   $("#draw-history").innerHTML = state.history.length
@@ -304,6 +342,7 @@ function showResult(m) {
   $("#slot-meta").innerHTML = [
     `<span class="chip">${esc(shortPlatform(m.platform))}</span>`,
     `<span class="chip">${esc(OS_LABEL[m.category] || m.category)}</span>`,
+    m.level ? `<span class="chip">${levelMeter(m)}</span>` : "",
     m.required ? '<span class="chip required">必練</span>' : "",
     m.note ? `<span class="chip${/harder/i.test(m.note) ? " warn" : ""}">${esc(m.note)}</span>` : "",
     m.section ? `<span class="chip">${esc(m.section)}</span>` : "",
@@ -389,7 +428,7 @@ function renderSchedule() {
   const pool = REQUIRED.filter((m) => statusOf(m.id) !== "done" && !peek(m.id).date).slice(0, 400);
   $("#assign-machine").innerHTML =
     '<option value="">選一台未完成的必練靶機…</option>' +
-    pool.map((m) => `<option value="${esc(m.id)}">${esc(m.name)} — ${esc(OS_LABEL[m.category] || m.category)}</option>`).join("") +
+    pool.map((m) => `<option value="${esc(m.id)}">${esc(m.name)} — ${esc(OS_LABEL[m.category] || m.category)}${m.difficulty ? " · " + m.difficulty : ""}</option>`).join("") +
     '<optgroup label="其他 OSCP 清單">' +
     trackPool("OSCP")
       .filter((m) => !m.required && statusOf(m.id) !== "done" && !peek(m.id).date)
@@ -514,8 +553,10 @@ document.addEventListener("change", (ev) => {
   if (t.id === "f-platform") { ui.platform = t.value; return renderMachines(); }
   if (t.id === "f-os") { ui.os = t.value; return renderMachines(); }
   if (t.id === "f-status") { ui.status = t.value; return renderMachines(); }
+  if (t.id === "f-level") { ui.level = t.value; return renderMachines(); }
   if (t.id === "f-required") { ui.requiredOnly = t.checked; return renderMachines(); }
   if (t.id === "draw-os") { ui.drawOs = t.value; return renderPool(); }
+  if (t.id === "draw-level") { ui.drawLevel = t.value; return renderPool(); }
   if (t.id === "draw-skip-done") { ui.skipDone = t.checked; return renderPool(); }
 });
 
