@@ -417,14 +417,13 @@ function renderOverview() {
 function rowHtml(m) {
   const e = peek(m.id);
   const tags = [];
-  if (m.required) tags.push('<span class="chip required">必練</span>');
-  if (m.note) tags.push(`<span class="chip${/harder/i.test(m.note) ? " warn" : ""}">${esc(m.note)}</span>`);
   if (m.section) tags.push(`<span class="chip">${esc(m.section)}</span>`);
-  if (e.date) tags.push(`<span class="chip mono">${esc(e.date.slice(5))}</span>`);
+  if (m.note) tags.push(`<span class="chip${/harder/i.test(m.note) ? " warn" : ""}">${esc(m.note)}</span>`);
+  if (e.date) tags.push(`<span class="chip mono" title="已排程">${esc(e.date.slice(5))}</span>`);
+  if (e.rating) tags.push(`<span class="chip" title="難度自評">${esc(e.rating)}</span>`);
   return `<div class="row state-${e.status}${ui.open === m.id ? " is-open" : ""}" data-id="${esc(m.id)}">
       <span class="dot ${e.status}"></span>
       <span class="title"><span class="n">${esc(m.name)}</span></span>
-      <span class="platform">${esc(shortPlatform(m.platform))}</span>
       <span class="os-cell chip">${esc(OS_LABEL[m.category] || m.category)}</span>
       <span class="lvl-cell">${levelMeter(m)}</span>
       <span class="tags">${tags.join("")}</span>
@@ -504,7 +503,7 @@ function renderMachines() {
     groups.get(key).push(m);
   });
 
-  const head = `<div class="table-head"><span></span><span>靶機</span><span>平台</span><span>系統</span><span>難度</span><span>標記</span><span></span><span style="text-align:right">狀態</span></div>`;
+  const head = `<div class="table-head"><span></span><span>靶機</span><span>系統</span><span>難度</span><span>標記</span><span></span><span style="text-align:right">狀態</span></div>`;
   let html = head;
   groups.forEach((items, key) => {
     const [track, platform] = key.split("|");

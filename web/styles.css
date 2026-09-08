@@ -413,7 +413,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 .group-head .gnum { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
 .row.state-done .n { color: var(--ink-3); }
-.row.state-done .lvl, .row.state-done .platform { opacity: .6; }
+.row.state-done .lvl, .row.state-done .os-cell { opacity: .6; }
 
 .row .quick {
   border: 1px solid transparent;
@@ -446,7 +446,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 .table { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .table-head, .row {
   display: grid;
-  grid-template-columns: 22px minmax(120px, 1.4fr) minmax(100px, .9fr) 96px 128px minmax(70px, .7fr) 30px 100px;
+  grid-template-columns: 22px minmax(130px, 1.3fr) 96px 132px minmax(120px, 1.5fr) 30px 100px;
   gap: 12px;
   align-items: center;
   padding: 9px 14px;
@@ -466,7 +466,6 @@ ul { list-style: none; margin: 0; padding: 0; }
 .row.is-open { background: var(--surface-2); }
 .row .title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .row .title .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row .platform { color: var(--ink-2); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row .tags { display: flex; gap: 5px; flex-wrap: wrap; }
 .row .status-cell { display: flex; justify-content: flex-end; }
 
@@ -709,11 +708,10 @@ ul { list-style: none; margin: 0; padding: 0; }
   .hero, .split, .draw-layout { grid-template-columns: minmax(0, 1fr); }
   .week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .table-head { display: none; }
-  .row { grid-template-columns: 18px minmax(0, 1fr) auto auto; grid-template-areas: "d t q s" ". p q s" ". g g g" ". x x x"; row-gap: 4px; }
+  .row { grid-template-columns: 18px minmax(0, 1fr) auto auto; grid-template-areas: "d t q s" ". g q s" ". x x x"; row-gap: 4px; }
   .row .quick { grid-area: q; opacity: 1; }
   .row .dot { grid-area: d; }
   .row .title { grid-area: t; }
-  .row .platform { grid-area: p; }
   .row .tags { grid-area: x; }
   .row .status-cell { grid-area: s; }
   .row .os-cell, .row .section-cell { display: none; }
