@@ -26,6 +26,8 @@
       <button data-view="schedule"><span class="glyph">▦</span>排程<span class="count" id="nav-count-sched"></span></button>
       <button data-view="data"><span class="glyph">↯</span>資料</button>
     </nav>
+    <div id="timer-slot"></div>
+
     <div class="rail-foot">
       <button class="rail-focus" id="rail-focus" title="只看必練的 Proving Grounds Practice 靶機">
         <span class="eyebrow">必練 PG Practice</span>
@@ -52,6 +54,7 @@
       </div>
 
       <div id="backup-nudge"></div>
+      <div id="plan-bar"></div>
 
       <div class="hero">
         <div class="focus-card">
@@ -212,6 +215,7 @@
         </div>
       </div>
 
+      <div class="panel" id="sync-panel" hidden></div>
       <div class="panel" id="backup-panel"></div>
 
       <div class="panel" style="display:flex;flex-direction:column;gap:12px">

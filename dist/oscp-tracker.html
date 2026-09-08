@@ -200,6 +200,87 @@ button { cursor: pointer; }
   border-top: 1px dashed var(--line);
 }
 
+/* ---------- timer ---------- */
+
+.timer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px;
+  border-radius: 9px;
+  background: var(--active-soft);
+  border-left: 3px solid var(--active);
+}
+.timer .tname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer b {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+  color: var(--active);
+}
+.timer .btn { margin-top: 3px; }
+
+/* ---------- exam plan ---------- */
+
+.plan {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: auto minmax(200px, 1fr) auto auto;
+  gap: 20px;
+  align-items: center;
+}
+.plan.empty { grid-template-columns: 1fr auto; gap: 14px; }
+.plan.empty p { margin: 3px 0 0; color: var(--ink-2); font-size: 13px; }
+
+.countdown { display: flex; flex-direction: column; gap: 1px; min-width: 104px; }
+.countdown b {
+  font-family: Archivo, sans-serif;
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.countdown .when { font-size: 11.5px; color: var(--ink-3); font-family: "IBM Plex Mono", monospace; }
+.countdown.over b { color: var(--ink-3); }
+
+.timeline { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.track {
+  position: relative;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--todo-soft);
+  overflow: visible;
+}
+.track .elapsed { position: absolute; inset: 0 auto 0 0; background: var(--line-strong); border-radius: 99px; }
+.track .filled { position: absolute; inset: 0 auto 0 0; background: var(--done); border-radius: 99px; opacity: .9; }
+.track .marker {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform: translateX(-1px);
+}
+.track .marker.today { background: var(--ink); }
+.ticks { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--ink-3); font-family: "IBM Plex Mono", monospace; }
+.ticks span { white-space: nowrap; }
+
+.pace { display: flex; flex-direction: column; gap: 1px; min-width: 150px; }
+.pace b { font-size: 14px; }
+.pace b.behind { color: var(--stuck); }
+.pace b.ahead { color: var(--done); }
+.pace small { color: var(--ink-3); font-size: 11.5px; }
+
+.plan-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.plan-form .field { min-width: 150px; }
+.plan-form .actions { display: flex; gap: 8px; margin-left: auto; }
+
 /* ---------- backup ---------- */
 
 .badge { padding: 2px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
@@ -784,6 +865,9 @@ ul { list-style: none; margin: 0; padding: 0; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 940px) {
+  .plan { grid-template-columns: 1fr; gap: 14px; }
+  .plan .countdown { flex-direction: row; align-items: baseline; gap: 10px; }
+
   .hero, .split, .draw-layout { grid-template-columns: minmax(0, 1fr); }
   .week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .table-head { display: none; }
@@ -820,6 +904,7 @@ ul { list-style: none; margin: 0; padding: 0; }
   .nav { flex-direction: row; gap: 4px; }
   .nav button { padding: 7px 10px; white-space: nowrap; }
   .nav .count, .rail-focus { display: none; }
+  #timer-slot { display: none; }
   .rail-foot { margin: 0; }
   .main { padding: 18px 14px 56px; }
 }
@@ -875,6 +960,8 @@ ul { list-style: none; margin: 0; padding: 0; }
       <button data-view="schedule"><span class="glyph">▦</span>排程<span class="count" id="nav-count-sched"></span></button>
       <button data-view="data"><span class="glyph">↯</span>資料</button>
     </nav>
+    <div id="timer-slot"></div>
+
     <div class="rail-foot">
       <button class="rail-focus" id="rail-focus" title="只看必練的 Proving Grounds Practice 靶機">
         <span class="eyebrow">必練 PG Practice</span>
@@ -901,6 +988,7 @@ ul { list-style: none; margin: 0; padding: 0; }
       </div>
 
       <div id="backup-nudge"></div>
+      <div id="plan-bar"></div>
 
       <div class="hero">
         <div class="focus-card">
@@ -1061,6 +1149,7 @@ ul { list-style: none; margin: 0; padding: 0; }
         </div>
       </div>
 
+      <div class="panel" id="sync-panel" hidden></div>
       <div class="panel" id="backup-panel"></div>
 
       <div class="panel" style="display:flex;flex-direction:column;gap:12px">
@@ -6418,8 +6507,8 @@ const STATUSES = { todo: "未開始", active: "進行中", done: "已完成", st
 const OS_LABEL = { Linux: "Linux", Windows: "Windows", "Active Directory and Networks": "AD / 網段" };
 const REQUIRED = MACHINES.filter((m) => m.required);
 
-let state = { entries: {}, history: [], theme: null };
-let ui = { view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", sort: "list", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
+let state = { entries: {}, history: [], theme: null, plan: {}, updatedAt: null };
+let ui = { editingPlan: false, view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", sort: "list", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
 
 const LEVEL_ORDER = ["100", "200", "300", "400"];
 const LEVEL_NAME = { 100: "Fundamental", 200: "Intermediate", 300: "Advanced", 400: "Insane" };
@@ -6438,7 +6527,13 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      state = { entries: parsed.entries || {}, history: parsed.history || [], theme: parsed.theme || null };
+      state = {
+        entries: parsed.entries || {},
+        history: parsed.history || [],
+        theme: parsed.theme || null,
+        plan: parsed.plan || {},
+        updatedAt: parsed.updatedAt || null,
+      };
     }
   } catch (err) {
     console.warn("無法讀取本機進度", err);
@@ -6447,12 +6542,14 @@ function load() {
 }
 
 function save() {
+  state.updatedAt = new Date().toISOString();
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch (err) {
     toast("瀏覽器拒絕儲存，進度只留在這個分頁");
   }
   scheduleBackup();
+  scheduleDb();
 }
 
 const META_KEY = "oscp-track-meta";
@@ -6485,6 +6582,117 @@ function saveMeta() {
   } catch (err) {
     /* 存不進去不影響主要流程 */
   }
+}
+
+let dbDoc = null;
+let dbState = "off";
+let dbTimer = null;
+
+function syncPayload() {
+  return {
+    entries: state.entries,
+    history: state.history,
+    plan: state.plan || {},
+    updatedAt: state.updatedAt || new Date().toISOString(),
+  };
+}
+
+function applyRemote(remote) {
+  if (!remote) return;
+  let changed = false;
+  Object.entries(remote.entries || {}).forEach(([id, r]) => {
+    const local = state.entries[id];
+    if (!local || (r.updatedAt || "") > (local.updatedAt || "")) {
+      state.entries[id] = r;
+      changed = true;
+    }
+  });
+  if ((remote.updatedAt || "") > (state.updatedAt || "")) {
+    state.plan = remote.plan || state.plan;
+    state.history = remote.history || state.history;
+    state.updatedAt = remote.updatedAt;
+    changed = true;
+  }
+  if (!changed) return;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  } catch (err) {
+    /* 同步下來的資料寫不進本機快取也還能用 */
+  }
+  render();
+}
+
+async function pushDb() {
+  if (!dbDoc) return;
+  const payload = syncPayload();
+  if (JSON.stringify(payload).length > 200000) {
+    dbState = "too-big";
+    return renderSync();
+  }
+  try {
+    await dbDoc.set(payload);
+    dbState = "on";
+  } catch (err) {
+    dbState = err && err.code === "invalid_argument" ? "readonly" : "error";
+  }
+  renderSync();
+}
+
+function scheduleDb() {
+  if (!dbDoc) return;
+  clearTimeout(dbTimer);
+  dbTimer = setTimeout(pushDb, 2000);
+}
+
+async function initDb() {
+  if (!HOSTED) return;
+  const api = await window.claude.use("db");
+  if (!api) return renderSync();
+  dbDoc = api.doc("progress/state");
+  dbState = "syncing";
+  renderSync();
+  try {
+    const snap = await dbDoc.get();
+    if (snap.exists) applyRemote(snap.data());
+    else await pushDb();
+    dbState = "on";
+  } catch (err) {
+    dbState = "error";
+  }
+  dbDoc.onSnapshot(
+    (snap) => snap.exists && applyRemote(snap.data()),
+    () => {
+      dbState = "error";
+      renderSync();
+    }
+  );
+  renderSync();
+}
+
+function renderSync() {
+  const panel = $("#sync-panel");
+  if (!panel) return;
+  if (!HOSTED) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const blocks = {
+    off: `<div class="backup-head"><span class="badge off">未啟用</span><h3>這個版本沒有雲端同步</h3></div>
+      <p class="backup-body">進度只留在這個瀏覽器，記得手動備份。</p>`,
+    syncing: `<div class="backup-head"><span class="badge warn">連線中</span><h3>正在對雲端資料庫</h3></div>`,
+    on: `<div class="backup-head"><span class="badge ok">雲端同步中</span><h3>換裝置也看得到同一份進度</h3></div>
+      <p class="backup-body">進度存在這個 artifact 專屬的資料庫裡，用你的帳號在任何裝置打開這個連結都會同步，
+        清瀏覽器快取也不會影響。逐台合併，兩台裝置各打各的不會互相蓋掉。</p>`,
+    readonly: `<div class="backup-head"><span class="badge off">唯讀</span><h3>這份進度屬於建立者</h3></div>
+      <p class="backup-body">你看到的是別人的紀錄，你自己的操作只會留在這個瀏覽器裡，不會蓋掉對方的資料。
+        想自己用一份，把專案 clone 下來或下載單檔版在本機開。</p>`,
+    error: `<div class="backup-head"><span class="badge warn">同步中斷</span><h3>暫時連不上雲端</h3></div>
+      <p class="backup-body">改動仍存在這個瀏覽器裡，連線恢復後會自己補上。真的不放心就先手動備份一份。</p>`,
+    "too-big": `<div class="backup-head"><span class="badge warn">超過單筆上限</span><h3>資料太大，雲端停止同步</h3></div>
+      <p class="backup-body">筆記累積超過 200 KB 了，超出單一文件上限。請改用檔案備份，或精簡一些筆記。</p>`,
+  };
+  panel.innerHTML = blocks[dbState] || blocks.off;
 }
 
 function idb(mode, fn) {
@@ -6716,7 +6924,9 @@ async function initBackup() {
 
 function entry(id) {
   if (!state.entries[id]) state.entries[id] = { status: "todo", minutes: 0, rating: "", notes: "", doneAt: null, date: null, url: "" };
-  return state.entries[id];
+  const e = state.entries[id];
+  e.updatedAt = new Date().toISOString();
+  return e;
 }
 
 function peek(id) {
@@ -6950,6 +7160,213 @@ function drawPool() {
 
 /* ---------- overview ---------- */
 
+const TIMER_KEY = "oscp-track-timer";
+const MAX_SESSION = 12 * 3600 * 1000;
+
+let timer = null;
+let tick = null;
+
+function loadTimer() {
+  try {
+    const raw = localStorage.getItem(TIMER_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !BY_ID.has(parsed.id)) return;
+    if (Date.now() - parsed.startedAt > MAX_SESSION) {
+      localStorage.removeItem(TIMER_KEY);
+      return;
+    }
+    timer = parsed;
+  } catch (err) {
+    /* 壞掉的計時紀錄直接忽略 */
+  }
+}
+
+function saveTimer() {
+  try {
+    if (timer) localStorage.setItem(TIMER_KEY, JSON.stringify(timer));
+    else localStorage.removeItem(TIMER_KEY);
+  } catch (err) {
+    /* 計時只是輔助，存不進去不影響 */
+  }
+}
+
+function elapsedText() {
+  const secs = Math.floor((Date.now() - timer.startedAt) / 1000);
+  return [Math.floor(secs / 3600), Math.floor(secs / 60) % 60, secs % 60]
+    .map((n) => String(n).padStart(2, "0"))
+    .join(":");
+}
+
+function startTick() {
+  clearInterval(tick);
+  tick = setInterval(() => {
+    const clock = $("#timer-clock");
+    if (!timer) return clearInterval(tick);
+    if (clock) clock.textContent = elapsedText();
+    if (Date.now() - timer.startedAt > MAX_SESSION) stopTimer();
+  }, 1000);
+}
+
+function startTimer(id) {
+  if (timer) stopTimer(true);
+  timer = { id, startedAt: Date.now() };
+  saveTimer();
+  const e = entry(id);
+  if (e.status === "todo") e.status = "active";
+  save();
+  render();
+  startTick();
+  toast(`${BY_ID.get(id).name} 開始計時`);
+}
+
+function stopTimer(quiet) {
+  if (!timer) return;
+  const minutes = Math.max(Math.round((Date.now() - timer.startedAt) / 60000), 1);
+  const name = BY_ID.get(timer.id).name;
+  const e = entry(timer.id);
+  e.minutes = (Number(e.minutes) || 0) + minutes;
+  timer = null;
+  saveTimer();
+  clearInterval(tick);
+  save();
+  render();
+  if (!quiet) toast(`${name} 記錄 ${minutes} 分鐘`);
+}
+
+function renderTimer() {
+  const host = $("#timer-slot");
+  if (!host) return;
+  if (!timer) {
+    host.innerHTML = "";
+    return;
+  }
+  host.innerHTML = `<div class="timer">
+    <span class="eyebrow">計時中</span>
+    <span class="tname">${esc(BY_ID.get(timer.id).name)}</span>
+    <b id="timer-clock">${elapsedText()}</b>
+    <button class="btn sm" data-act="stop-timer">停止並記錄</button>
+  </div>`;
+}
+
+const DAY = 86400000;
+const DOW = ["日", "一", "二", "三", "四", "五", "六"];
+
+function planDate(key) {
+  const v = state.plan && state.plan[key];
+  if (!v) return null;
+  const d = new Date(v + "T00:00:00");
+  return isNaN(d) ? null : d;
+}
+
+function fmtDate(d) {
+  return `${iso(d).slice(5)}（${DOW[d.getDay()]}）`;
+}
+
+function daysBetween(a, b) {
+  return Math.round((b.setHours ? new Date(iso(b) + "T00:00:00") : b) - new Date(iso(a) + "T00:00:00")) / DAY;
+}
+
+function renderPlan() {
+  const host = $("#plan-bar");
+  if (!host) return;
+
+  if (ui.editingPlan) {
+    host.innerHTML = `<div class="panel">
+      <div class="panel-head"><h3>備考期程</h3><span class="result-line">留白的欄位會被忽略</span></div>
+      <div class="plan-form">
+        <div class="field"><label>開始準備</label><input type="date" id="plan-start" value="${esc(state.plan.start || "")}"></div>
+        <div class="field"><label>考試日期</label><input type="date" id="plan-exam" value="${esc(state.plan.exam || "")}"></div>
+        <div class="field"><label>方案／實驗室到期</label><input type="date" id="plan-end" value="${esc(state.plan.end || "")}"></div>
+        <div class="actions">
+          <button class="btn" data-act="cancel-plan">取消</button>
+          ${state.plan.start || state.plan.exam || state.plan.end ? '<button class="btn ghost" data-act="clear-plan">清除</button>' : ""}
+          <button class="btn primary" data-act="save-plan">儲存</button>
+        </div>
+      </div>
+      <p class="result-line" style="margin:10px 0 0">
+        考試日跟到期日可以不一樣——有些方案一年內能考兩次，到期日是實驗室時數用完的那天。
+      </p>
+    </div>`;
+    return;
+  }
+
+  const start = planDate("start");
+  const exam = planDate("exam");
+  const end = planDate("end");
+  const target = exam || end;
+
+  if (!target) {
+    host.innerHTML = `<div class="plan empty">
+      <div>
+        <span class="eyebrow">備考期程</span>
+        <p>設定開始、考試與方案到期日，就能看到時間走得多快、練習跟不跟得上。</p>
+      </div>
+      <button class="btn primary" data-act="edit-plan">設定期程</button>
+    </div>`;
+    return;
+  }
+
+  const now = new Date();
+  const todayD = new Date(iso(now) + "T00:00:00");
+  const left = Math.round((target - todayD) / DAY);
+  const from = start || new Date(Math.min(todayD, target - 60 * DAY));
+  const span = Math.max((target - from) / DAY, 1);
+  const elapsed = Math.min(Math.max((todayD - from) / DAY, 0), span);
+  const timePct = Math.round((elapsed / span) * 100);
+
+  const reqDone = REQUIRED.filter((m) => statusOf(m.id) === "done").length;
+  const donePct = pct(reqDone, REQUIRED.length);
+  const gap = donePct - timePct;
+  const remaining = REQUIRED.length - reqDone;
+  const weeks = Math.max(left / 7, 0.15);
+  const perWeek = (remaining / weeks).toFixed(1);
+
+  const rightEdge = end && exam && end > exam ? end : target;
+  const examLeft = exam ? Math.min(Math.max(((exam - from) / DAY / ((rightEdge - from) / DAY)) * 100, 0), 100) : null;
+  const todayLeft = Math.min(Math.max(((todayD - from) / DAY / ((rightEdge - from) / DAY)) * 100, 0), 100);
+
+  const overdue = left < 0;
+  const paceClass = gap < -8 ? "behind" : gap > 8 ? "ahead" : "";
+  const paceText = overdue ? "期程已過" : gap < -8 ? `落後 ${Math.abs(gap)}%` : gap > 8 ? `超前 ${gap}%` : "跟得上";
+
+  host.innerHTML = `<div class="plan">
+    <div class="countdown${overdue ? " over" : ""}">
+      <span class="eyebrow">${exam ? "距離考試" : "距離到期"}</span>
+      <b>${overdue ? `D+${Math.abs(left)}` : `D-${left}`}</b>
+      <span class="when">${fmtDate(target)}</span>
+    </div>
+
+    <div class="timeline">
+      <div class="track">
+        <span class="elapsed" style="width:${todayLeft}%"></span>
+        <span class="filled" style="width:${(Math.min(donePct, 100) * (examLeft === null ? 100 : examLeft)) / 100}%"></span>
+        ${examLeft !== null ? `<span class="marker" style="left:${examLeft}%" title="考試日"></span>` : ""}
+        <span class="marker today" style="left:${todayLeft}%" title="今天"></span>
+      </div>
+      <div class="ticks">
+        <span>${start ? "開始 " + iso(start).slice(5) : "—"}</span>
+        <span>時間 ${timePct}% · 必練 ${donePct}%</span>
+        <span>${end ? "到期 " + iso(end).slice(5) : exam ? "考試 " + iso(exam).slice(5) : ""}</span>
+      </div>
+    </div>
+
+    <div class="pace">
+      <span class="eyebrow">節奏</span>
+      <b class="${paceClass}">${paceText}</b>
+      <small>${
+        overdue
+          ? `必練還剩 ${remaining} 台`
+          : remaining
+            ? `考前打完必練，每週要 ${perWeek} 台`
+            : "必練已經全部完成"
+      }</small>
+    </div>
+
+    <button class="btn ghost sm" data-act="edit-plan">調整</button>
+  </div>`;
+}
+
 function ring(done, total) {
   const p = pct(done, total);
   const r = 50;
@@ -7113,7 +7530,14 @@ function detailHtml(m) {
   const e = peek(m.id);
   return `<div class="detail" data-detail="${esc(m.id)}">
     <div class="detail-grid">
-      <div class="field"><label>耗時（分鐘）</label><input type="number" min="0" step="15" value="${e.minutes || ""}" data-act="minutes" data-id="${esc(m.id)}"></div>
+      <div class="field"><label>耗時（分鐘）</label>
+        <input type="number" min="0" step="15" value="${e.minutes || ""}" data-act="minutes" data-id="${esc(m.id)}">
+        ${
+          timer && timer.id === m.id
+            ? '<button type="button" class="btn sm" data-act="stop-timer" style="margin-top:4px">停止計時 · ' + elapsedText() + "</button>"
+            : `<button type="button" class="btn sm" data-act="start-timer" data-id="${esc(m.id)}" style="margin-top:4px">開始計時</button>`
+        }
+      </div>
       <div class="field wide"><label>難度自評（跟 OffSec 給的分級比起來如何）</label>
         <div class="rating-row">
           ${["很簡單", "偏易", "剛好", "偏難", "打不動"]
@@ -7404,7 +7828,9 @@ function renderSchedule() {
 /* ---------- render root ---------- */
 
 function render() {
+  renderTimer();
   renderOverview();
+  renderPlan();
   renderBackup();
   if (ui.view === "machines") renderMachines();
   if (ui.view === "draw") renderPool();
@@ -7526,6 +7952,39 @@ document.addEventListener("click", (ev) => {
     return renderMachines();
   }
 
+  const startT = ev.target.closest('[data-act="start-timer"]');
+  if (startT) {
+    ev.stopPropagation();
+    return startTimer(startT.dataset.id);
+  }
+  if (ev.target.closest('[data-act="stop-timer"]')) {
+    ev.stopPropagation();
+    return stopTimer();
+  }
+
+  if (ev.target.closest('[data-act="edit-plan"]')) {
+    ui.editingPlan = true;
+    return renderPlan();
+  }
+  if (ev.target.closest('[data-act="cancel-plan"]')) {
+    ui.editingPlan = false;
+    return renderPlan();
+  }
+  if (ev.target.closest('[data-act="save-plan"]')) {
+    state.plan = { start: $("#plan-start").value || "", exam: $("#plan-exam").value || "", end: $("#plan-end").value || "" };
+    ui.editingPlan = false;
+    save();
+    render();
+    return toast("期程已更新");
+  }
+  if (ev.target.closest('[data-act="clear-plan"]')) {
+    state.plan = {};
+    ui.editingPlan = false;
+    save();
+    render();
+    return toast("期程已清除");
+  }
+
   if (ev.target.closest("#btn-link-backup")) return linkBackup();
   if (ev.target.closest("#btn-backup-now") || ev.target.closest("#btn-reauth")) {
     return writeBackup(true).then((ok) => ok && toast("已寫入備份檔"));
@@ -7614,7 +8073,13 @@ $("#btn-import").onclick = () => {
   try {
     const parsed = JSON.parse($("#io").value);
     if (!parsed || typeof parsed.entries !== "object") throw new Error("格式不符");
-    state = { entries: parsed.entries, history: parsed.history || [], theme: state.theme };
+    state = {
+      entries: parsed.entries,
+      history: parsed.history || [],
+      theme: state.theme,
+      plan: parsed.plan || {},
+      updatedAt: parsed.updatedAt || null,
+    };
     save();
     render();
     toast("匯入完成");
@@ -7625,7 +8090,7 @@ $("#btn-import").onclick = () => {
 
 $("#btn-reset").onclick = () => {
   if (!confirm("清除所有狀態、筆記與排程？此動作無法復原。")) return;
-  state = { entries: {}, history: [], theme: state.theme };
+  state = { entries: {}, history: [], theme: state.theme, plan: {}, updatedAt: null };
   save();
   render();
   toast("已清空");
@@ -7686,11 +8151,15 @@ $("#file-input").onchange = async (ev) => {
 
 load();
 loadMeta();
+loadTimer();
 initSelects();
 renderPlatformFilter();
 paintTheme();
 render();
+if (timer) startTick();
 initBackup();
+renderSync();
+initDb();
 if (HOSTED) {
   window.claude
     .use("downloads")
