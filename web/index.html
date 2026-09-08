@@ -82,7 +82,7 @@
     <section class="view" id="view-machines">
       <div class="view-head">
         <div>
-          <span class="eyebrow">445 台靶機</span>
+          <span class="eyebrow" id="machines-eyebrow">OSCP 清單</span>
           <h2>靶機清單</h2>
           <p>點一列展開，記錄狀態、耗時、難度與筆記。</p>
         </div>
@@ -98,31 +98,19 @@
           <button data-track="Red Team" aria-pressed="false">Red Team</button>
           <button data-track="all" aria-pressed="false">全部</button>
         </div>
-        <select id="f-platform"></select>
-        <select id="f-os">
-          <option value="">全部系統</option>
-          <option value="Linux">Linux</option>
-          <option value="Windows">Windows</option>
-          <option value="Active Directory and Networks">AD / 網段</option>
-        </select>
-        <select id="f-level">
-          <option value="">全部難度</option>
-          <option value="100">Fundamental</option>
-          <option value="200">Intermediate</option>
-          <option value="300">Advanced</option>
-          <option value="400">Insane</option>
-        </select>
-        <select id="f-status">
-          <option value="">全部狀態</option>
-          <option value="todo">未開始</option>
-          <option value="active">進行中</option>
-          <option value="done">已完成</option>
-          <option value="stuck">卡關</option>
-        </select>
+        <div class="sel" id="f-platform"></div>
+        <div class="sel" id="f-os"></div>
+        <div class="sel" id="f-level"></div>
+        <div class="sel" id="f-status"></div>
+        <div class="sel" id="f-sort"></div>
         <label class="toggle"><input type="checkbox" id="f-required">只看必練</label>
       </div>
 
-      <div class="result-line" id="result-line"></div>
+      <div class="list-summary">
+        <span class="result-line" id="result-line"></span>
+        <span class="bar"><span class="done" id="list-bar" style="width:0%"></span></span>
+        <span class="filter-chips" id="filter-chips"></span>
+      </div>
       <div class="table" id="table"></div>
     </section>
 
@@ -144,18 +132,8 @@
               <button data-scope="oscp" aria-pressed="false">OSCP 全部</button>
               <button data-scope="filter" aria-pressed="false">沿用清單篩選</button>
             </div>
-            <select id="draw-os">
-              <option value="">不限系統</option>
-              <option value="Linux">Linux</option>
-              <option value="Windows">Windows</option>
-              <option value="Active Directory and Networks">AD / 網段</option>
-            </select>
-            <select id="draw-level">
-              <option value="">不限難度</option>
-              <option value="100">Fundamental</option>
-              <option value="200">Intermediate</option>
-              <option value="300">Advanced</option>
-            </select>
+            <div class="sel" id="draw-os"></div>
+            <div class="sel" id="draw-level"></div>
             <label class="toggle"><input type="checkbox" id="draw-skip-done" checked>排除已完成</label>
           </div>
 
@@ -202,7 +180,7 @@
       <div class="panel">
         <div class="assign-bar">
           <input type="date" id="assign-date" class="btn" style="font-family:'IBM Plex Mono',monospace">
-          <select id="assign-machine"></select>
+          <div class="sel" id="assign-machine" style="flex:1 1 260px"></div>
           <button class="btn primary" id="assign-add">排入</button>
           <button class="btn" id="assign-auto">自動排本週 5 台</button>
         </div>

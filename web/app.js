@@ -6,7 +6,7 @@ const OS_LABEL = { Linux: "Linux", Windows: "Windows", "Active Directory and Net
 const REQUIRED = MACHINES.filter((m) => m.required);
 
 let state = { entries: {}, history: [], theme: null };
-let ui = { view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
+let ui = { view: "overview", track: "OSCP", q: "", platform: "", os: "", status: "", level: "", sort: "list", requiredOnly: false, open: null, scope: "required", drawOs: "", drawLevel: "", skipDone: true, weekOffset: 0, current: null };
 
 const LEVEL_ORDER = ["100", "200", "300", "400"];
 const LEVEL_NAME = { 100: "Fundamental", 200: "Intermediate", 300: "Advanced", 400: "Insane" };
@@ -65,6 +65,173 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
 }
+
+let openPop = null;
+
+function closePop() {
+  if (!openPop) return;
+  openPop.pop.remove();
+  openPop.host.classList.remove("is-open");
+  const btn = openPop.host.querySelector("button[aria-haspopup]");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  openPop = null;
+}
+
+function placePop(host, pop) {
+  const box = host.getBoundingClientRect();
+  if (box.bottom + 320 > window.innerHeight && box.top > 340) pop.classList.add("up");
+  if (box.left + 320 > window.innerWidth) pop.classList.add("right");
+}
+
+function popList(items, current) {
+  let html = "";
+  let group = null;
+  items.forEach((o, i) => {
+    if (o.group && o.group !== group) {
+      group = o.group;
+      html += `<li class="group" role="presentation">${esc(group)}</li>`;
+    }
+    html += `<li role="option" data-i="${i}" data-value="${esc(o.value)}" aria-selected="${o.value === current}">
+      <span>${o.html || esc(o.label)}</span>${o.hint ? `<span class="hint">${esc(o.hint)}</span>` : ""}</li>`;
+  });
+  return html || '<li class="sel-empty" role="presentation">沒有符合的項目</li>';
+}
+
+function createSelect(id, config) {
+  const host = $("#" + id);
+  const self = {
+    options: config.options || [],
+    value: config.value || "",
+    placeholder: config.placeholder || "請選擇",
+    searchable: config.searchable || false,
+    defaultValue: config.defaultValue || "",
+    onChange: config.onChange || (() => {}),
+  };
+
+  host.innerHTML = `<button type="button" aria-haspopup="listbox" aria-expanded="false"><span class="val"></span><span class="caret">▼</span></button>`;
+  const btn = host.querySelector("button");
+
+  function label() {
+    const hit = self.options.find((o) => o.value === self.value);
+    return hit && hit.value !== "" ? hit.label : self.placeholder;
+  }
+
+  function paint() {
+    btn.querySelector(".val").textContent = label();
+    host.classList.toggle("is-set", self.value !== self.defaultValue);
+    btn.title = label();
+  }
+
+  function open() {
+    closePop();
+    const pop = document.createElement("div");
+    pop.className = "sel-pop";
+    pop.innerHTML =
+      (self.searchable ? '<input class="sel-search" type="search" placeholder="輸入以過濾…">' : "") +
+      `<ul class="sel-list" role="listbox">${popList(self.options, self.value)}</ul>`;
+    host.appendChild(pop);
+    host.classList.add("is-open");
+    btn.setAttribute("aria-expanded", "true");
+    placePop(host, pop);
+    openPop = { host, pop, select: self, filtered: self.options };
+
+    const search = pop.querySelector(".sel-search");
+    if (search) {
+      search.focus();
+      search.oninput = () => {
+        const q = search.value.trim().toLowerCase();
+        const items = q ? self.options.filter((o) => o.label.toLowerCase().includes(q)) : self.options;
+        openPop.filtered = items;
+        pop.querySelector(".sel-list").innerHTML = popList(items, self.value);
+      };
+    }
+    const sel = pop.querySelector('[aria-selected="true"]');
+    if (sel) sel.scrollIntoView({ block: "nearest" });
+  }
+
+  btn.onclick = (ev) => {
+    ev.stopPropagation();
+    if (openPop && openPop.host === host) closePop();
+    else open();
+  };
+
+  host.addEventListener("click", (ev) => {
+    const li = ev.target.closest("li[role=option]");
+    if (!li) return;
+    ev.stopPropagation();
+    self.value = li.dataset.value;
+    closePop();
+    paint();
+    self.onChange(self.value);
+  });
+
+  host.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") return closePop();
+    if (!openPop || openPop.host !== host) {
+      if (ev.key === "ArrowDown" || ev.key === "Enter") { ev.preventDefault(); open(); }
+      return;
+    }
+    const items = [...host.querySelectorAll("li[role=option]")];
+    if (!items.length) return;
+    let idx = items.findIndex((li) => li.classList.contains("cursor"));
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      idx = ev.key === "ArrowDown" ? Math.min(idx + 1, items.length - 1) : Math.max(idx - 1, 0);
+      items.forEach((li) => li.classList.remove("cursor"));
+      items[idx].classList.add("cursor");
+      items[idx].scrollIntoView({ block: "nearest" });
+    } else if (ev.key === "Enter" && idx >= 0) {
+      ev.preventDefault();
+      items[idx].click();
+    }
+  });
+
+  self.setOptions = (options) => { self.options = options; paint(); };
+  self.set = (value) => { self.value = value; paint(); };
+  paint();
+  return self;
+}
+
+function statusMenu(pill, id) {
+  closePop();
+  const host = pill.parentElement;
+  const pop = document.createElement("div");
+  pop.className = "sel-pop right";
+  const current = statusOf(id);
+  pop.innerHTML = `<ul class="sel-list" role="listbox">${popList(
+    Object.entries(STATUSES).map(([value, label]) => ({
+      value,
+      label,
+      html: `<span class="dot ${value}" style="display:inline-block;margin-right:7px;vertical-align:middle"></span>${label}`,
+    })),
+    current
+  )}</ul>`;
+  host.appendChild(pop);
+  host.classList.add("is-open");
+  placePop(host, pop);
+  openPop = { host, pop };
+  pop.addEventListener("click", (ev) => {
+    const li = ev.target.closest("li[role=option]");
+    if (!li) return;
+    ev.stopPropagation();
+    const next = li.dataset.value;
+    closePop();
+    setStatus(id, next);
+  });
+}
+
+function setStatus(id, value) {
+  const e = entry(id);
+  e.status = value;
+  e.doneAt = value === "done" ? e.doneAt || new Date().toISOString() : null;
+  save();
+  render();
+}
+
+document.addEventListener("click", (ev) => {
+  if (openPop && !ev.target.closest(".sel-pop") && !ev.target.closest(".is-open")) closePop();
+});
+window.addEventListener("resize", closePop);
 
 function pct(done, total) {
   return total ? Math.round((done / total) * 100) : 0;
@@ -254,17 +421,18 @@ function rowHtml(m) {
   if (m.note) tags.push(`<span class="chip${/harder/i.test(m.note) ? " warn" : ""}">${esc(m.note)}</span>`);
   if (m.section) tags.push(`<span class="chip">${esc(m.section)}</span>`);
   if (e.date) tags.push(`<span class="chip mono">${esc(e.date.slice(5))}</span>`);
-  return `<div class="row${ui.open === m.id ? " is-open" : ""}" data-id="${esc(m.id)}">
+  return `<div class="row state-${e.status}${ui.open === m.id ? " is-open" : ""}" data-id="${esc(m.id)}">
       <span class="dot ${e.status}"></span>
       <span class="title"><span class="n">${esc(m.name)}</span></span>
       <span class="platform">${esc(shortPlatform(m.platform))}</span>
       <span class="os-cell chip">${esc(OS_LABEL[m.category] || m.category)}</span>
       <span class="lvl-cell">${levelMeter(m)}</span>
       <span class="tags">${tags.join("")}</span>
-      <span class="status-cell">
-        <select class="status-select" data-status="${e.status}" data-act="status" data-id="${esc(m.id)}">
-          ${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}"${e.status === k ? " selected" : ""}>${v}</option>`).join("")}
-        </select>
+      <button class="quick" data-act="quick-done" data-id="${esc(m.id)}" title="${e.status === "done" ? "取消完成" : "標為已完成"}" aria-label="${e.status === "done" ? "取消完成" : "標為已完成"}">✓</button>
+      <span class="status-cell sel">
+        <button class="status-pill" data-status="${e.status}" data-act="status" data-id="${esc(m.id)}" aria-haspopup="listbox">
+          ${STATUSES[e.status]}<span class="caret">▼</span>
+        </button>
       </span>
     </div>${ui.open === m.id ? detailHtml(m) : ""}`;
 }
@@ -274,11 +442,13 @@ function detailHtml(m) {
   return `<div class="detail" data-detail="${esc(m.id)}">
     <div class="detail-grid">
       <div class="field"><label>耗時（分鐘）</label><input type="number" min="0" step="15" value="${e.minutes || ""}" data-act="minutes" data-id="${esc(m.id)}"></div>
-      <div class="field"><label>難度自評</label>
-        <select data-act="rating" data-id="${esc(m.id)}">
-          <option value=""${!e.rating ? " selected" : ""}>—</option>
-          ${["很簡單", "偏易", "剛好", "偏難", "打不動"].map((r) => `<option${e.rating === r ? " selected" : ""}>${r}</option>`).join("")}
-        </select>
+      <div class="field wide"><label>難度自評（跟 OffSec 給的分級比起來如何）</label>
+        <div class="rating-row">
+          ${["很簡單", "偏易", "剛好", "偏難", "打不動"]
+            .map((r) => `<button type="button" data-act="rating" data-id="${esc(m.id)}" data-value="${r}" aria-pressed="${e.rating === r}">${r}</button>`)
+            .join("")}
+          ${e.rating ? `<button type="button" class="btn ghost sm" data-act="rating" data-id="${esc(m.id)}" data-value="">清除</button>` : ""}
+        </div>
       </div>
       <div class="field"><label>排定日期</label><input type="date" value="${e.date || ""}" data-act="date" data-id="${esc(m.id)}"></div>
       <div class="field"><label>Writeup 連結</label><input type="url" placeholder="https://" value="${esc(e.url || "")}" data-act="url" data-id="${esc(m.id)}"></div>
@@ -287,22 +457,144 @@ function detailHtml(m) {
   </div>`;
 }
 
+const STATUS_ORDER = { active: 0, stuck: 1, todo: 2, done: 3 };
+
+function sortList(items) {
+  const base = items.map((m, i) => ({ m, i }));
+  const cmp = {
+    list: (a, b) => a.i - b.i,
+    name: (a, b) => a.m.name.localeCompare(b.m.name),
+    level: (a, b) => (a.m.level || "999").localeCompare(b.m.level || "999") || a.i - b.i,
+    status: (a, b) => STATUS_ORDER[statusOf(a.m.id)] - STATUS_ORDER[statusOf(b.m.id)] || a.i - b.i,
+  }[ui.sort];
+  return base.sort(cmp).map((x) => x.m);
+}
+
+function renderChips() {
+  const chips = [];
+  if (ui.q) chips.push(["q", `搜尋「${ui.q}」`]);
+  if (ui.requiredOnly) chips.push(["requiredOnly", "只看必練"]);
+  if (ui.platform) chips.push(["platform", shortPlatform(ui.platform)]);
+  if (ui.os) chips.push(["os", OS_LABEL[ui.os] || ui.os]);
+  if (ui.level) chips.push(["level", LEVEL_NAME[ui.level]]);
+  if (ui.status) chips.push(["status", STATUSES[ui.status]]);
+  $("#filter-chips").innerHTML =
+    chips.map(([key, text]) => `<button data-act="drop-filter" data-key="${key}">${esc(text)}<span class="x">×</span></button>`).join("") +
+    (chips.length > 1 ? '<button class="clear-all" data-act="drop-filter" data-key="all">全部清除</button>' : "");
+}
+
 function renderMachines() {
   const list = filtered();
   const done = list.filter((m) => statusOf(m.id) === "done").length;
-  $("#result-line").textContent = `${list.length} 台符合條件 · 已完成 ${done} · ${pct(done, list.length)}%`;
-  $("#table").innerHTML = list.length
-    ? `<div class="table-head"><span></span><span>靶機</span><span>平台</span><span>系統</span><span>難度</span><span>標記</span><span style="text-align:right">狀態</span></div>` +
-      list.map(rowHtml).join("")
-    : '<div class="empty" style="padding:24px;text-align:center">沒有符合條件的靶機。</div>';
+  const scope = ui.track === "all" ? "全部清單" : ui.track + " 清單";
+  $("#machines-eyebrow").textContent = `${scope} · ${trackPool(ui.track).length} 台`;
+  $("#result-line").textContent = `${list.length} 台 · 完成 ${done} · ${pct(done, list.length)}%`;
+  $("#list-bar").style.width = pct(done, list.length) + "%";
+  renderChips();
+
+  if (!list.length) {
+    $("#table").innerHTML = '<div class="empty" style="padding:28px;text-align:center">沒有符合條件的靶機，放寬篩選試試。</div>';
+    return;
+  }
+
+  const groups = new Map();
+  list.forEach((m) => {
+    const key = `${m.track}|${m.platform}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(m);
+  });
+
+  const head = `<div class="table-head"><span></span><span>靶機</span><span>平台</span><span>系統</span><span>難度</span><span>標記</span><span></span><span style="text-align:right">狀態</span></div>`;
+  let html = head;
+  groups.forEach((items, key) => {
+    const [track, platform] = key.split("|");
+    const gdone = items.filter((m) => statusOf(m.id) === "done").length;
+    html += `<div class="group-head">
+        <span class="gname">${esc(shortPlatform(platform))}</span>
+        ${items[0].required ? '<span class="chip required">必練</span>' : `<span class="gsec">${esc(track)}</span>`}
+        <span class="gbar bar"><span class="${gdone === items.length ? "done" : ""}" style="width:${pct(gdone, items.length)}%"></span></span>
+        <span class="gnum">${gdone}/${items.length}</span>
+      </div>`;
+    html += sortList(items).map(rowHtml).join("");
+  });
+  $("#table").innerHTML = html;
+}
+
+const SEL = {};
+
+function platformOptions() {
+  const counts = new Map();
+  trackPool(ui.track).forEach((m) => counts.set(m.platform, (counts.get(m.platform) || 0) + 1));
+  return [{ value: "", label: "全部平台" }].concat(
+    [...counts.entries()].map(([p, n]) => ({ value: p, label: shortPlatform(p), hint: String(n) }))
+  );
 }
 
 function renderPlatformFilter() {
-  const platforms = [...new Set(trackPool(ui.track).map((m) => m.platform))];
-  if (!platforms.includes(ui.platform)) ui.platform = "";
-  $("#f-platform").innerHTML =
-    '<option value="">全部平台</option>' +
-    platforms.map((p) => `<option value="${esc(p)}"${ui.platform === p ? " selected" : ""}>${esc(shortPlatform(p))}</option>`).join("");
+  if (!trackPool(ui.track).some((m) => m.platform === ui.platform)) ui.platform = "";
+  SEL.platform.setOptions(platformOptions());
+  SEL.platform.set(ui.platform);
+}
+
+function initSelects() {
+  const osOptions = (all) => [{ value: "", label: all }].concat(
+    Object.entries(OS_LABEL).map(([value, label]) => ({ value, label }))
+  );
+  const levelOptions = (all, levels) => [{ value: "", label: all }].concat(
+    levels.map((lv) => ({ value: lv, label: LEVEL_NAME[lv] }))
+  );
+
+  SEL.platform = createSelect("f-platform", {
+    options: platformOptions(),
+    placeholder: "全部平台",
+    searchable: true,
+    onChange: (v) => { ui.platform = v; renderMachines(); },
+  });
+  SEL.os = createSelect("f-os", {
+    options: osOptions("全部系統"),
+    placeholder: "全部系統",
+    onChange: (v) => { ui.os = v; renderMachines(); },
+  });
+  SEL.level = createSelect("f-level", {
+    options: levelOptions("全部難度", ["100", "200", "300", "400"]),
+    placeholder: "全部難度",
+    onChange: (v) => { ui.level = v; renderMachines(); },
+  });
+  SEL.status = createSelect("f-status", {
+    options: [{ value: "", label: "全部狀態" }].concat(
+      Object.entries(STATUSES).map(([value, label]) => ({ value, label }))
+    ),
+    placeholder: "全部狀態",
+    onChange: (v) => { ui.status = v; renderMachines(); },
+  });
+  SEL.sort = createSelect("f-sort", {
+    options: [
+      { value: "list", label: "清單順序" },
+      { value: "name", label: "依名稱" },
+      { value: "level", label: "依難度" },
+      { value: "status", label: "依狀態" },
+    ],
+    value: "list",
+    defaultValue: "list",
+    placeholder: "清單順序",
+    onChange: (v) => { ui.sort = v; renderMachines(); },
+  });
+  SEL.drawOs = createSelect("draw-os", {
+    options: osOptions("不限系統"),
+    placeholder: "不限系統",
+    onChange: (v) => { ui.drawOs = v; renderPool(); },
+  });
+  SEL.drawLevel = createSelect("draw-level", {
+    options: levelOptions("不限難度", ["100", "200", "300"]),
+    placeholder: "不限難度",
+    onChange: (v) => { ui.drawLevel = v; renderPool(); },
+  });
+  SEL.assignMachine = createSelect("assign-machine", {
+    options: [],
+    placeholder: "選一台靶機…",
+    searchable: true,
+    onChange: () => {},
+  });
 }
 
 /* ---------- draw ---------- */
@@ -425,16 +717,15 @@ function renderSchedule() {
   }
   $("#week-grid").innerHTML = html;
 
-  const pool = REQUIRED.filter((m) => statusOf(m.id) !== "done" && !peek(m.id).date).slice(0, 400);
-  $("#assign-machine").innerHTML =
-    '<option value="">選一台未完成的必練靶機…</option>' +
-    pool.map((m) => `<option value="${esc(m.id)}">${esc(m.name)} — ${esc(OS_LABEL[m.category] || m.category)}${m.difficulty ? " · " + m.difficulty : ""}</option>`).join("") +
-    '<optgroup label="其他 OSCP 清單">' +
-    trackPool("OSCP")
-      .filter((m) => !m.required && statusOf(m.id) !== "done" && !peek(m.id).date)
-      .map((m) => `<option value="${esc(m.id)}">${esc(m.name)} — ${esc(shortPlatform(m.platform))}</option>`)
-      .join("") +
-    "</optgroup>";
+  const free = (m) => statusOf(m.id) !== "done" && !peek(m.id).date;
+  const options = REQUIRED.filter(free)
+    .map((m) => ({ value: m.id, label: m.name, hint: m.difficulty || "", group: "必練 PG Practice" }))
+    .concat(
+      trackPool("OSCP")
+        .filter((m) => !m.required && free(m))
+        .map((m) => ({ value: m.id, label: m.name, hint: shortPlatform(m.platform), group: "其他 OSCP 清單" }))
+    );
+  SEL.assignMachine.setOptions(options);
   if (!$("#assign-date").value) $("#assign-date").value = today();
 }
 
@@ -468,6 +759,7 @@ document.addEventListener("click", (ev) => {
   if (seg) {
     ui.track = seg.dataset.track;
     document.querySelectorAll("#track-seg button").forEach((b) => b.setAttribute("aria-pressed", String(b === seg)));
+    closePop();
     renderPlatformFilter();
     return renderMachines();
   }
@@ -517,19 +809,52 @@ document.addEventListener("click", (ev) => {
     return toast(`${BY_ID.get(plan.dataset.id).name} 已排到今天`);
   }
 
-  const quick = ev.target.closest('[data-act="quick-add"]');
-  if (quick) {
+  const quickAdd = ev.target.closest('[data-act="quick-add"]');
+  if (quickAdd) {
     const pool = REQUIRED.filter((m) => statusOf(m.id) !== "done" && !peek(m.id).date);
     if (!pool.length) return toast("必練靶機都排完了");
     const pick = pool[Math.floor(Math.random() * pool.length)];
-    entry(pick.id).date = quick.dataset.date;
+    entry(pick.id).date = quickAdd.dataset.date;
     save();
     render();
-    return toast(`${pick.name} 已排入 ${quick.dataset.date.slice(5)}`);
+    return toast(`${pick.name} 已排入 ${quickAdd.dataset.date.slice(5)}`);
+  }
+
+  const pill = ev.target.closest('[data-act="status"]');
+  if (pill) {
+    ev.stopPropagation();
+    if (openPop && openPop.host === pill.parentElement) return closePop();
+    return statusMenu(pill, pill.dataset.id);
+  }
+
+  const quick = ev.target.closest('[data-act="quick-done"]');
+  if (quick) {
+    ev.stopPropagation();
+    return setStatus(quick.dataset.id, statusOf(quick.dataset.id) === "done" ? "todo" : "done");
+  }
+
+  const rate = ev.target.closest('[data-act="rating"]');
+  if (rate) {
+    ev.stopPropagation();
+    entry(rate.dataset.id).rating = rate.dataset.value;
+    save();
+    return renderMachines();
+  }
+
+  const drop = ev.target.closest('[data-act="drop-filter"]');
+  if (drop) {
+    const key = drop.dataset.key;
+    const reset = { q: "", platform: "", os: "", level: "", status: "", requiredOnly: false };
+    if (key === "all") Object.assign(ui, reset);
+    else ui[key] = reset[key];
+    $("#q").value = ui.q;
+    $("#f-required").checked = ui.requiredOnly;
+    ["platform", "os", "level", "status"].forEach((k) => SEL[k].set(ui[k]));
+    return renderMachines();
   }
 
   const row = ev.target.closest(".row");
-  if (row && !ev.target.closest("select")) {
+  if (row && !ev.target.closest("button")) {
     ui.open = ui.open === row.dataset.id ? null : row.dataset.id;
     return renderMachines();
   }
@@ -538,25 +863,11 @@ document.addEventListener("click", (ev) => {
 document.addEventListener("change", (ev) => {
   const t = ev.target;
   const act = t.dataset.act;
-  if (act === "status") {
-    const e = entry(t.dataset.id);
-    e.status = t.value;
-    e.doneAt = t.value === "done" ? e.doneAt || new Date().toISOString() : null;
-    save();
-    return render();
-  }
   if (act === "minutes") { entry(t.dataset.id).minutes = Number(t.value) || 0; return save(); }
-  if (act === "rating") { entry(t.dataset.id).rating = t.value; return save(); }
   if (act === "url") { entry(t.dataset.id).url = t.value; return save(); }
   if (act === "date") { entry(t.dataset.id).date = t.value || null; save(); return render(); }
 
-  if (t.id === "f-platform") { ui.platform = t.value; return renderMachines(); }
-  if (t.id === "f-os") { ui.os = t.value; return renderMachines(); }
-  if (t.id === "f-status") { ui.status = t.value; return renderMachines(); }
-  if (t.id === "f-level") { ui.level = t.value; return renderMachines(); }
   if (t.id === "f-required") { ui.requiredOnly = t.checked; return renderMachines(); }
-  if (t.id === "draw-os") { ui.drawOs = t.value; return renderPool(); }
-  if (t.id === "draw-level") { ui.drawLevel = t.value; return renderPool(); }
   if (t.id === "draw-skip-done") { ui.skipDone = t.checked; return renderPool(); }
 });
 
@@ -578,10 +889,11 @@ $("#week-next").onclick = () => { ui.weekOffset += 1; renderSchedule(); };
 $("#week-today").onclick = () => { ui.weekOffset = 0; renderSchedule(); };
 
 $("#assign-add").onclick = () => {
-  const id = $("#assign-machine").value;
+  const id = SEL.assignMachine.value;
   const date = $("#assign-date").value;
   if (!id || !date) return toast("先選日期跟靶機");
   entry(id).date = date;
+  SEL.assignMachine.set("");
   save();
   render();
   toast(`${BY_ID.get(id).name} 已排入 ${date.slice(5)}`);
@@ -653,6 +965,7 @@ $("#theme-toggle").onclick = () => {
 /* ---------- boot ---------- */
 
 load();
+initSelects();
 renderPlatformFilter();
 render();
 $("#storage-line").textContent = `目前紀錄 ${Object.keys(state.entries).length} 台靶機的狀態，存在 localStorage 的 ${KEY}。`;
