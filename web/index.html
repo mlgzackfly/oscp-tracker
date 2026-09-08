@@ -27,12 +27,15 @@
       <button data-view="data"><span class="glyph">↯</span>資料</button>
     </nav>
     <div class="rail-foot">
-      <div class="mini-progress">
-        <div class="row"><span class="eyebrow">必練 PG Practice</span></div>
-        <div class="row"><strong id="rail-pg">0 / 0</strong><span class="mono" id="rail-pg-pct" style="color:var(--ink-3);font-size:12px"></span></div>
-        <div class="bar"><span class="done" id="rail-pg-bar" style="width:0%"></span></div>
-      </div>
-      <button class="btn ghost sm" id="theme-toggle" style="align-self:flex-start">切換佈景</button>
+      <button class="rail-focus" id="rail-focus" title="只看必練的 Proving Grounds Practice 靶機">
+        <span class="eyebrow">必練 PG Practice</span>
+        <span class="row"><strong id="rail-pg">0 / 0</strong><span class="mono" id="rail-pg-pct"></span></span>
+        <span class="bar"><span class="done" id="rail-pg-bar" style="width:0%"></span></span>
+        <span class="go">只看這些 →</span>
+      </button>
+      <button class="btn ghost sm" id="theme-toggle" style="align-self:flex-start">
+        <span id="theme-icon">☾</span> <span id="theme-label">深色模式</span>
+      </button>
     </div>
   </aside>
 
@@ -47,6 +50,8 @@
         </div>
         <button class="btn primary" data-goto="draw">抽一台來打 →</button>
       </div>
+
+      <div id="backup-nudge"></div>
 
       <div class="hero">
         <div class="focus-card">
@@ -78,6 +83,11 @@
           </div>
         </div>
       </div>
+
+      <p class="disclaimer">
+        這份清單和難度分級只是練習參考。把它全部打完也不保證考得過——考場上的枚舉節奏、
+        時間分配與報告品質一樣會決定結果。清單本身也會過時：靶機會下架、平台會改版。
+      </p>
     </section>
 
     <!-- 靶機清單 -->
@@ -195,26 +205,40 @@
     <section class="view" id="view-data">
       <div class="view-head">
         <div>
-          <span class="eyebrow">Local storage</span>
+          <span class="eyebrow">Backup &amp; restore</span>
           <h2>資料</h2>
-          <p>進度只存在這台瀏覽器。換裝置或清快取前先匯出備份。</p>
+          <p>OSCP 準備是好幾個月的事，進度只放在瀏覽器裡並不保險——清快取、換瀏覽器、換電腦都會消失。
+            把它接到一個本機檔案，之後每次改動都自動寫進去。</p>
         </div>
       </div>
+
+      <div class="panel" id="backup-panel"></div>
+
       <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <div class="panel-head"><h3>手動備份</h3><span class="result-line" id="storage-line"></span></div>
         <div class="data-actions">
-          <button class="btn primary" id="btn-export">匯出到下方</button>
+          <button class="btn primary" id="btn-download">下載備份檔</button>
+          <button class="btn" id="btn-restore-file">從檔案還原</button>
           <button class="btn" id="btn-copy">複製 JSON</button>
-          <button class="btn" id="btn-import">從下方匯入</button>
+          <button class="btn" id="btn-import">從下方貼上匯入</button>
           <button class="btn" id="btn-reset" style="color:var(--stuck)">清除全部進度</button>
         </div>
         <textarea class="io-area mono" id="io" placeholder="匯出的 JSON 會出現在這裡；也可以貼上備份後按「從下方匯入」。"></textarea>
-        <p class="result-line" id="storage-line"></p>
+        <input type="file" id="file-input" accept="application/json,.json" hidden>
       </div>
+
       <div class="panel">
-        <h3>清單來源</h3>
-        <p style="color:var(--ink-2);margin:0 0 8px">
-          資料整理自 LainKusanagi 的 OSCP-like machines 清單（含 Red Teaming 分頁），共 445 筆。
-          必練標記給的是 OSCP 分頁的 Proving Grounds Practice 區塊。
+        <h3>清單來源與免責</h3>
+        <p style="color:var(--ink-2);margin:0 0 10px">
+          靶機清單整理自 LainKusanagi 的 OSCP-like machines 試算表（含 Red Teaming 分頁），共 445 筆。
+          必練標記給的是 OSCP 分頁的 Proving Grounds Practice 區塊。難度取自 OffSec portal 的 Practice 實驗室資料，
+          只套用在 Proving Grounds 平台上——HackTheBox 有 Access、Escape 這類同名靶機，跨平台對名會配錯。
+        </p>
+        <p style="color:var(--ink-2);margin:0 0 10px">
+          <strong>這些都只是參考。</strong>清單是別人整理的經驗，難度是 OffSec 對自家靶機的標記，
+          兩者都不代表考試內容。全部打完仍可能沒通過，沒全部打完也可能通過；
+          真正決定結果的是你的方法論、枚舉的完整度、時間控制與報告。靶機也會下架或改版，
+          清單有時效性，以各平台當下的實際狀況為準。
         </p>
         <p class="result-line" id="source-line"></p>
       </div>
@@ -223,6 +247,7 @@
 </div>
 <div class="toast" id="toast"></div>
 <!-- APP:END -->
+
 <script src="data.js"></script>
 <script src="app.js"></script>
 </body>

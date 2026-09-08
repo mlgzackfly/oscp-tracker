@@ -39,6 +39,266 @@ function save() {
   } catch (err) {
     toast("瀏覽器拒絕儲存，進度只留在這個分頁");
   }
+  scheduleBackup();
+}
+
+const META_KEY = "oscp-track-meta";
+const FS_SUPPORTED = typeof window.showSaveFilePicker === "function";
+const HOSTED = typeof window.claude?.use === "function";
+
+let downloadsApi = null;
+
+function canDownload() {
+  return HOSTED ? !!downloadsApi : true;
+}
+
+let meta = { lastBackupAt: null, fileName: null };
+let fileHandle = null;
+let backupState = FS_SUPPORTED ? "none" : "unsupported";
+let backupTimer = null;
+
+function loadMeta() {
+  try {
+    const raw = localStorage.getItem(META_KEY);
+    if (raw) meta = Object.assign(meta, JSON.parse(raw));
+  } catch (err) {
+    /* 沒有備份紀錄就用預設值 */
+  }
+}
+
+function saveMeta() {
+  try {
+    localStorage.setItem(META_KEY, JSON.stringify(meta));
+  } catch (err) {
+    /* 存不進去不影響主要流程 */
+  }
+}
+
+function idb(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("oscp-track", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("kv");
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const tx = req.result.transaction("kv", mode);
+      const op = fn(tx.objectStore("kv"));
+      op.onsuccess = () => resolve(op.result);
+      op.onerror = () => reject(op.error);
+    };
+  });
+}
+
+const HANDLE_KEY = "backup-handle";
+
+async function linkBackup() {
+  try {
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName: "oscp-tracker-backup.json",
+      types: [{ description: "JSON 備份", accept: { "application/json": [".json"] } }],
+    });
+  } catch (err) {
+    return;
+  }
+  meta.fileName = fileHandle.name;
+  saveMeta();
+  try {
+    await idb("readwrite", (store) => store.put(fileHandle, HANDLE_KEY));
+  } catch (err) {
+    /* 記不住 handle 只影響下次開啟，這次仍能寫 */
+  }
+  if (await writeBackup(true)) toast("已接上備份檔，之後每次變更都會自動寫入");
+}
+
+async function writeBackup(manual) {
+  if (!fileHandle) return false;
+  try {
+    let perm = await fileHandle.queryPermission({ mode: "readwrite" });
+    if (perm !== "granted") {
+      if (!manual) {
+        backupState = "needs-permission";
+        renderBackup();
+        return false;
+      }
+      perm = await fileHandle.requestPermission({ mode: "readwrite" });
+      if (perm !== "granted") return false;
+    }
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(state, null, 2));
+    await writable.close();
+    meta.lastBackupAt = new Date().toISOString();
+    saveMeta();
+    backupState = "linked";
+    renderBackup();
+    return true;
+  } catch (err) {
+    backupState = "needs-permission";
+    renderBackup();
+    return false;
+  }
+}
+
+function scheduleBackup() {
+  if (!fileHandle || backupState === "needs-permission") return;
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(() => writeBackup(false), 1500);
+}
+
+async function unlinkBackup() {
+  fileHandle = null;
+  meta.fileName = null;
+  meta.lastBackupAt = meta.lastBackupAt;
+  saveMeta();
+  try {
+    await idb("readwrite", (store) => store.delete(HANDLE_KEY));
+  } catch (err) {
+    /* handle 本來就不在 */
+  }
+  backupState = "none";
+  renderBackup();
+  toast("已解除連結，檔案本身沒有被刪除");
+}
+
+function applyBackup(text) {
+  const parsed = JSON.parse(text);
+  if (!parsed || typeof parsed.entries !== "object") throw new Error("格式不符");
+  state = { entries: parsed.entries, history: parsed.history || [], theme: state.theme };
+  save();
+  render();
+  renderBackup();
+}
+
+async function readFromLinked() {
+  if (!fileHandle) return;
+  try {
+    const perm = await fileHandle.queryPermission({ mode: "read" });
+    if (perm !== "granted" && (await fileHandle.requestPermission({ mode: "read" })) !== "granted") return;
+    const file = await fileHandle.getFile();
+    applyBackup(await file.text());
+    toast("已從備份檔讀回進度");
+  } catch (err) {
+    toast("讀取失敗：備份檔可能被移動或不是有效的 JSON");
+  }
+}
+
+function markBackedUp() {
+  meta.lastBackupAt = new Date().toISOString();
+  saveMeta();
+  renderBackup();
+}
+
+async function downloadBackup() {
+  const text = JSON.stringify(state, null, 2);
+  const filename = `oscp-tracker-${today()}.json`;
+
+  if (HOSTED) {
+    if (!downloadsApi) return toast("這裡無法存檔，改用「複製 JSON」");
+    try {
+      await downloadsApi.save({ filename, data: text });
+      markBackedUp();
+      toast("備份檔已儲存");
+    } catch (err) {
+      if (err && err.code === "declined") return;
+      toast("存檔沒有完成，改用「複製 JSON」");
+    }
+    return;
+  }
+
+  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  markBackedUp();
+  toast("已下載備份檔");
+}
+
+function daysSince(isoDate) {
+  if (!isoDate) return null;
+  return Math.floor((Date.now() - new Date(isoDate).getTime()) / 86400000);
+}
+
+function lastBackupText() {
+  const days = daysSince(meta.lastBackupAt);
+  if (days === null) return "還沒備份過";
+  if (days === 0) return "今天備份過";
+  return `上次備份 ${days} 天前`;
+}
+
+function renderBackup() {
+  const panel = $("#backup-panel");
+  if (!panel) return;
+  const blocks = {
+    unsupported: () => `
+      <div class="backup-head"><span class="badge off">無法自動備份</span><h3>這個環境不能接本機檔案</h3></div>
+      <p class="backup-body">${
+        HOSTED
+          ? "自動寫入本機檔案只在你自己電腦上開啟的版本可用。在這裡請養成手動備份的習慣，或下載單檔版放到電腦上跑。"
+          : "Chrome、Edge 這類 Chromium 瀏覽器可以把進度接到一個本機檔案自動寫入；你目前的瀏覽器只能手動備份。"
+      }建議每週備份一次，放進雲端同步資料夾。</p>
+      <div class="data-actions">${
+        canDownload()
+          ? '<button class="btn primary" id="btn-download-2">下載備份檔</button>'
+          : '<button class="btn primary" id="btn-copy-2">複製 JSON 保存</button>'
+      }</div>`,
+    none: () => `
+      <div class="backup-head"><span class="badge warn">尚未啟用</span><h3>把進度接到一個本機檔案</h3></div>
+      <p class="backup-body">選一個位置存備份檔——放在 <b>iCloud Drive、Dropbox、Google Drive</b> 這類會同步的資料夾裡最好。
+        接上之後每次改動都會自動寫入，換電腦時在新機器上接同一個檔案再讀回來就行。</p>
+      <div class="data-actions"><button class="btn primary" id="btn-link-backup">選擇備份檔位置</button></div>`,
+    linked: () => `
+      <div class="backup-head"><span class="badge ok">自動備份中</span><h3>每次改動都會寫入</h3></div>
+      <div class="backup-file">📄 ${esc(meta.fileName || "備份檔")} · ${lastBackupText()}</div>
+      <div class="data-actions">
+        <button class="btn" id="btn-backup-now">立即備份</button>
+        <button class="btn" id="btn-read-backup">從這個檔案讀回</button>
+        <button class="btn ghost" id="btn-unlink">解除連結</button>
+      </div>`,
+    "needs-permission": () => `
+      <div class="backup-head"><span class="badge warn">等待授權</span><h3>重開瀏覽器後要再點一次</h3></div>
+      <p class="backup-body">瀏覽器基於安全考量，重新開啟後需要你確認一次才能繼續寫入
+        <b>${esc(meta.fileName || "備份檔")}</b>。在那之前的改動只存在這個瀏覽器裡。</p>
+      <div class="data-actions">
+        <button class="btn primary" id="btn-reauth">重新授權並備份</button>
+        <button class="btn ghost" id="btn-unlink">解除連結</button>
+      </div>`,
+  };
+  panel.innerHTML = blocks[backupState]();
+
+  const dl = $("#btn-download");
+  if (dl) dl.hidden = !canDownload();
+
+  const line = $("#storage-line");
+  if (line) line.textContent = `已記錄 ${Object.keys(state.entries).length} 台 · ${lastBackupText()}`;
+
+  const nudge = $("#backup-nudge");
+  if (!nudge) return;
+  const days = daysSince(meta.lastBackupAt);
+  const hasWork = Object.keys(state.entries).length > 0;
+  const stale = hasWork && backupState !== "linked" && (days === null || days >= 7);
+  nudge.innerHTML = stale
+    ? `<div class="nudge"><span>⚠</span><span><b>進度只存在這個瀏覽器。</b>${
+        days === null ? "還沒備份過" : `上次備份是 ${days} 天前`
+      }——清快取或換電腦就會不見。</span><button class="btn sm" data-goto="data">去備份</button></div>`
+    : "";
+}
+
+async function initBackup() {
+  if (!FS_SUPPORTED) return renderBackup();
+  try {
+    const handle = await idb("readonly", (store) => store.get(HANDLE_KEY));
+    if (handle) {
+      fileHandle = handle;
+      meta.fileName = handle.name;
+      backupState = (await handle.queryPermission({ mode: "readwrite" })) === "granted" ? "linked" : "needs-permission";
+    }
+  } catch (err) {
+    backupState = "none";
+  }
+  renderBackup();
+  if (backupState === "linked") writeBackup(false);
 }
 
 function entry(id) {
@@ -732,6 +992,7 @@ function renderSchedule() {
 
 function render() {
   renderOverview();
+  renderBackup();
   if (ui.view === "machines") renderMachines();
   if (ui.view === "draw") renderPool();
   if (ui.view === "schedule") renderSchedule();
@@ -852,6 +1113,15 @@ document.addEventListener("click", (ev) => {
     return renderMachines();
   }
 
+  if (ev.target.closest("#btn-link-backup")) return linkBackup();
+  if (ev.target.closest("#btn-backup-now") || ev.target.closest("#btn-reauth")) {
+    return writeBackup(true).then((ok) => ok && toast("已寫入備份檔"));
+  }
+  if (ev.target.closest("#btn-read-backup")) return readFromLinked();
+  if (ev.target.closest("#btn-unlink")) return unlinkBackup();
+  if (ev.target.closest("#btn-download-2")) return downloadBackup();
+  if (ev.target.closest("#btn-copy-2")) return $("#btn-copy").click();
+
   const row = ev.target.closest(".row");
   if (row && !ev.target.closest("button")) {
     ui.open = ui.open === row.dataset.id ? null : row.dataset.id;
@@ -915,11 +1185,6 @@ $("#assign-auto").onclick = () => {
   toast(`排入 ${picks.length} 台`);
 };
 
-$("#btn-export").onclick = () => {
-  $("#io").value = JSON.stringify(state, null, 2);
-  toast("已匯出，可自行複製保存");
-};
-
 $("#btn-copy").onclick = async () => {
   const text = JSON.stringify(state, null, 2);
   $("#io").value = text;
@@ -953,19 +1218,74 @@ $("#btn-reset").onclick = () => {
   toast("已清空");
 };
 
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+function isDark() {
+  const attr = document.documentElement.getAttribute("data-theme");
+  return attr ? attr === "dark" : darkQuery.matches;
+}
+
+function paintTheme() {
+  const dark = isDark();
+  $("#theme-icon").textContent = dark ? "☀" : "☾";
+  $("#theme-label").textContent = dark ? "淺色模式" : "深色模式";
+  $("#theme-toggle").title = dark ? "切換到淺色模式" : "切換到深色模式";
+}
+
 $("#theme-toggle").onclick = () => {
-  const now = document.documentElement.getAttribute("data-theme");
-  const dark = now ? now === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
-  state.theme = dark ? "light" : "dark";
+  state.theme = isDark() ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", state.theme);
+  paintTheme();
   save();
+};
+
+darkQuery.addEventListener("change", () => {
+  if (!state.theme) paintTheme();
+});
+
+$("#rail-focus").onclick = () => {
+  Object.assign(ui, { track: "OSCP", q: "", platform: "", os: "", level: "", status: "", requiredOnly: true });
+  $("#q").value = "";
+  $("#f-required").checked = true;
+  ["platform", "os", "level", "status"].forEach((k) => SEL[k].set(""));
+  document.querySelectorAll("#track-seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.track === "OSCP")));
+  renderPlatformFilter();
+  setView("machines");
+};
+
+$("#btn-download").onclick = downloadBackup;
+
+$("#btn-restore-file").onclick = () => $("#file-input").click();
+
+$("#file-input").onchange = async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  try {
+    applyBackup(await file.text());
+    toast(`已從 ${file.name} 還原`);
+  } catch (err) {
+    toast("還原失敗：不是有效的備份 JSON");
+  }
+  ev.target.value = "";
 };
 
 /* ---------- boot ---------- */
 
 load();
+loadMeta();
 initSelects();
 renderPlatformFilter();
+paintTheme();
 render();
-$("#storage-line").textContent = `目前紀錄 ${Object.keys(state.entries).length} 台靶機的狀態，存在 localStorage 的 ${KEY}。`;
+initBackup();
+if (HOSTED) {
+  window.claude
+    .use("downloads")
+    .then((api) => {
+      downloadsApi = api;
+      renderBackup();
+    })
+    .catch(() => renderBackup());
+}
+$("#storage-line").textContent = `已記錄 ${Object.keys(state.entries).length} 台 · ${lastBackupText()}`;
 $("#source-line").textContent = `OSCP 分頁 ${trackPool("OSCP").length} 台 · Red Teaming 分頁 ${trackPool("Red Team").length} 台 · 必練 ${REQUIRED.length} 台`;
