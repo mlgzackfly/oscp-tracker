@@ -17,6 +17,7 @@
   --stuck: #a32b21;
   --stuck-soft: #f7dedb;
   --todo-soft: #e6e9ee;
+  --chart-bar: #0d8a78;
   --shadow-sm: 0 1px 2px rgba(21, 24, 30, .07);
   --shadow-lg: 0 1px 2px rgba(21, 24, 30, .06), 0 14px 34px -18px rgba(21, 24, 30, .35);
   --rail: 216px;
@@ -42,6 +43,7 @@
     --stuck: #f0877b;
     --stuck-soft: #3a201d;
     --todo-soft: #242a32;
+    --chart-bar: #2f9d8c;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
     --shadow-lg: 0 1px 2px rgba(0, 0, 0, .3), 0 14px 34px -18px rgba(0, 0, 0, .8);
   }
@@ -66,6 +68,7 @@
   --stuck: #f0877b;
   --stuck-soft: #3a201d;
   --todo-soft: #242a32;
+  --chart-bar: #2f9d8c;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
   --shadow-lg: 0 1px 2px rgba(0, 0, 0, .3), 0 14px 34px -18px rgba(0, 0, 0, .8);
 }
@@ -270,6 +273,64 @@ button { cursor: pointer; }
 .plan-form .field { min-width: 150px; }
 .plan-form .actions { display: flex; gap: 8px; margin-left: auto; }
 
+/* ---------- charts ---------- */
+
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .bar-mark { fill: var(--chart-bar); }
+.chart .bar-hit { fill: transparent; cursor: pointer; }
+.chart .bar-hit:hover + .bar-mark, .chart .bar-mark.hot { filter: brightness(1.15); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .goal { stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart text { fill: var(--ink-3); font-family: "IBM Plex Mono", monospace; font-size: 9px; }
+.chart text.value { fill: var(--ink); font-weight: 500; }
+
+.chart-tip {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  background: var(--ink);
+  color: var(--ground);
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  transform: translate(-50%, -120%);
+  opacity: 0;
+  transition: opacity .12s ease;
+  box-shadow: var(--shadow-lg);
+}
+.chart-tip.show { opacity: 1; }
+.chart-tip b { font-family: "IBM Plex Mono", monospace; }
+
+.chart-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: var(--ink-3); }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i { width: 10px; height: 10px; border-radius: 2px; background: var(--chart-bar); display: block; }
+.chart-legend i.goal { height: 0; width: 14px; border-radius: 0; background: none; border-top: 2px dashed var(--ink-3); }
+
+/* ---------- phase breakdown ---------- */
+
+.phase-list { display: flex; flex-direction: column; gap: 9px; }
+.phase-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; align-items: baseline; }
+.phase-row .pname { font-size: 13px; font-weight: 500; }
+.phase-row .pnum { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.phase-row .pbar { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: var(--todo-soft); overflow: hidden; }
+.phase-row .pbar span { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.phase-row small { grid-column: 1 / -1; color: var(--ink-3); font-size: 11.5px; }
+
+.phase-picks { display: flex; gap: 5px; flex-wrap: wrap; }
+.phase-picks button {
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.phase-picks button:hover { border-color: var(--ink-3); color: var(--ink); }
+.phase-picks button[aria-pressed="true"] { background: var(--stuck-soft); border-color: transparent; color: var(--stuck); font-weight: 600; }
+
 /* ---------- backup ---------- */
 
 .badge { padding: 2px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
@@ -429,6 +490,9 @@ button { cursor: pointer; }
 .stat small { color: var(--ink-3); font-size: 11.5px; }
 
 .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.split.even { align-items: stretch; }
+.split.even .panel { display: flex; flex-direction: column; }
+.split.even .chart { flex: 1; display: flex; flex-direction: column; justify-content: center; }
 
 .panel h3 { font-size: 14px; margin-bottom: 12px; }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 10px; }

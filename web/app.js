@@ -305,24 +305,21 @@ function markBackedUp() {
   renderBackup();
 }
 
-async function downloadBackup() {
-  const text = JSON.stringify(state, null, 2);
-  const filename = `oscp-tracker-${today()}.json`;
-
+async function saveFile(filename, text, mime) {
   if (HOSTED) {
-    if (!downloadsApi) return toast("這裡無法存檔，改用「複製 JSON」");
+    if (!downloadsApi) {
+      toast("這裡無法存檔，改用「複製 JSON」");
+      return false;
+    }
     try {
       await downloadsApi.save({ filename, data: text });
-      markBackedUp();
-      toast("備份檔已儲存");
+      return true;
     } catch (err) {
-      if (err && err.code === "declined") return;
-      toast("存檔沒有完成，改用「複製 JSON」");
+      if (!err || err.code !== "declined") toast("存檔沒有完成");
+      return false;
     }
-    return;
   }
-
-  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
@@ -330,8 +327,84 @@ async function downloadBackup() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
+}
+
+async function downloadBackup() {
+  const ok = await saveFile(`oscp-tracker-${today()}.json`, JSON.stringify(state, null, 2), "application/json");
+  if (!ok) return;
   markBackedUp();
-  toast("已下載備份檔");
+  toast("備份檔已儲存");
+}
+
+function buildMarkdown() {
+  const out = [`# OSCP 練習紀錄`, "", `匯出於 ${today()}`, ""];
+
+  const target = planDate("exam") || planDate("end");
+  if (target) {
+    const left = Math.round((target - new Date(today() + "T00:00:00")) / DAY);
+    out.push("## 期程", "");
+    if (state.plan.start) out.push(`- 開始準備：${state.plan.start}`);
+    if (state.plan.exam) out.push(`- 考試日期：${state.plan.exam}${planDate("exam") ? `（${left >= 0 ? "還剩 " + left : "已過 " + -left} 天）` : ""}`);
+    if (state.plan.end) out.push(`- 方案到期：${state.plan.end}`);
+    out.push("");
+  }
+
+  const reqDone = REQUIRED.filter((m) => statusOf(m.id) === "done").length;
+  const minutes = Object.values(state.entries).reduce((a, e) => a + (Number(e.minutes) || 0), 0);
+  out.push("## 進度", "", `- Proving Grounds Practice（必練）：${reqDone} / ${REQUIRED.length}（${pct(reqDone, REQUIRED.length)}%）`);
+  const groups = new Map();
+  trackPool("OSCP").forEach((m) => {
+    if (m.required) return;
+    if (!groups.has(m.platform)) groups.set(m.platform, { done: 0, total: 0 });
+    const g = groups.get(m.platform);
+    g.total += 1;
+    if (statusOf(m.id) === "done") g.done += 1;
+  });
+  groups.forEach((g, name) => {
+    if (g.done) out.push(`- ${shortPlatform(name)}：${g.done} / ${g.total}`);
+  });
+  out.push(`- 累積投入：${(minutes / 60).toFixed(1)} 小時`, "");
+
+  const counts = {};
+  Object.values(state.entries).forEach((e) => (e.phases || []).forEach((id) => (counts[id] = (counts[id] || 0) + 1)));
+  if (Object.keys(counts).length) {
+    out.push("## 卡關分布", "");
+    PHASES.filter((p) => counts[p.id])
+      .sort((a, b) => counts[b.id] - counts[a.id])
+      .forEach((p) => out.push(`- ${p.label}：${counts[p.id]} 台`));
+    out.push("");
+  }
+
+  const worked = MACHINES.filter((m) => {
+    const e = peek(m.id);
+    return e.status !== "todo" || e.notes || (e.phases || []).length;
+  });
+  if (worked.length) {
+    out.push("## 靶機紀錄", "");
+    worked.forEach((m) => {
+      const e = peek(m.id);
+      const facts = [STATUSES[e.status]];
+      if (e.doneAt) facts.push(e.doneAt.slice(0, 10));
+      if (e.minutes) facts.push(`${e.minutes} 分鐘`);
+      if (e.rating) facts.push(`自評 ${e.rating}`);
+      const head = [shortPlatform(m.platform), OS_LABEL[m.category] || m.category, m.difficulty].filter(Boolean).join(" · ");
+      out.push(`### ${m.name}`, "", `${head}`, "", facts.join(" · "));
+      const phases = (e.phases || []).map((id) => (PHASES.find((p) => p.id === id) || {}).label).filter(Boolean);
+      if (phases.length) out.push("", `卡關：${phases.join("、")}`);
+      if (e.url) out.push("", `Writeup: ${e.url}`);
+      if (e.notes) out.push("", e.notes.trim());
+      out.push("");
+    });
+  }
+
+  out.push("---", "", "由 OSCP 靶機作戰台匯出。清單與難度僅供參考，不代表考試內容。");
+  return out.join("\n");
+}
+
+async function exportMarkdown() {
+  const ok = await saveFile(`oscp-notes-${today()}.md`, buildMarkdown(), "text/markdown");
+  if (ok) toast("筆記已匯出為 Markdown");
 }
 
 function daysSince(isoDate) {
@@ -388,6 +461,8 @@ function renderBackup() {
 
   const dl = $("#btn-download");
   if (dl) dl.hidden = !canDownload();
+  const md = $("#btn-markdown");
+  if (md) md.hidden = !canDownload();
 
   const line = $("#storage-line");
   if (line) line.textContent = `已記錄 ${Object.keys(state.entries).length} 台 · ${lastBackupText()}`;
@@ -657,6 +732,180 @@ function drawPool() {
 }
 
 /* ---------- overview ---------- */
+
+const PHASES = [
+  { id: "recon", label: "枚舉偵察", hint: "掃完了但找不到攻擊面" },
+  { id: "foothold", label: "初始立足點", hint: "看到漏洞卻打不進去" },
+  { id: "privesc", label: "提權", hint: "進去了但升不上去" },
+  { id: "lateral", label: "橫向移動 / AD", hint: "網段內跳不過去" },
+  { id: "report", label: "紀錄與報告", hint: "截圖跟步驟沒留好" },
+];
+
+const NOTE_TEMPLATE = `## 枚舉
+- 開放埠：
+- 服務／版本：
+- 值得追的線索：
+
+## 立足點
+- 漏洞：
+- 利用方式：
+
+## 提權
+- 線索：
+- 手法：
+
+## 學到什麼
+- `;
+
+function weekKey(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return iso(x);
+}
+
+function weeklyStats(weeks = 12) {
+  const buckets = new Map();
+  for (let i = weeks - 1; i >= 0; i -= 1) {
+    buckets.set(iso(weekStart(-i)), { done: 0, minutes: 0 });
+  }
+  Object.entries(state.entries).forEach(([id, e]) => {
+    if (!e.doneAt) return;
+    const key = weekKey(new Date(e.doneAt));
+    const bucket = buckets.get(key);
+    if (!bucket) return;
+    bucket.done += 1;
+    bucket.minutes += Number(e.minutes) || 0;
+  });
+  return [...buckets.entries()].map(([week, v]) => ({ week, ...v }));
+}
+
+function goalPerWeek() {
+  const target = planDate("exam") || planDate("end");
+  if (!target) return null;
+  const left = (target - new Date(today() + "T00:00:00")) / DAY;
+  if (left <= 0) return null;
+  const remaining = REQUIRED.length - REQUIRED.filter((m) => statusOf(m.id) === "done").length;
+  if (!remaining) return null;
+  return remaining / Math.max(left / 7, 0.15);
+}
+
+function renderTrend() {
+  const host = $("#trend");
+  if (!host) return;
+  const data = weeklyStats();
+  const total = data.reduce((a, d) => a + d.done, 0);
+  const scope = $("#trend-scope");
+
+  if (!total) {
+    if (scope) scope.textContent = "";
+    host.innerHTML = '<p class="empty">還沒有完成紀錄。打完第一台之後，這裡會顯示每週的節奏。</p>';
+    return;
+  }
+
+  const goal = goalPerWeek();
+  const peak = Math.max(...data.map((d) => d.done), goal || 0, 1);
+  const top = Math.ceil(peak);
+  const W = 480;
+  const H = 132;
+  const padL = 22;
+  const padB = 16;
+  const plotW = W - padL;
+  const plotH = H - padB;
+  const step = plotW / data.length;
+  const barW = Math.min(step - 6, 26);
+  const y = (v) => plotH - (v / top) * (plotH - 6);
+
+  const minutes = data.reduce((a, d) => a + d.minutes, 0);
+  if (scope) scope.textContent = `近 12 週 · ${total} 台 · ${(minutes / 60).toFixed(1)} 小時`;
+
+  const gridLines = [0, top / 2, top]
+    .map((v) => `<line class="grid" x1="${padL}" x2="${W}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line>
+      <text x="${padL - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${Math.round(v)}</text>`)
+    .join("");
+
+  const bars = data
+    .map((d, i) => {
+      const x = padL + i * step + (step - barW) / 2;
+      const h = plotH - y(d.done);
+      const label = i === data.length - 1 && d.done ? `<text class="value" x="${(x + barW / 2).toFixed(1)}" y="${(y(d.done) - 5).toFixed(1)}" text-anchor="middle">${d.done}</text>` : "";
+      return `${
+        d.done
+          ? `<rect class="bar-mark" x="${x.toFixed(1)}" y="${y(d.done).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4"></rect>
+             <rect class="bar-mark" x="${x.toFixed(1)}" y="${(plotH - Math.min(h, 4)).toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.min(h, 4).toFixed(1)}"></rect>`
+          : ""
+      }<rect class="bar-hit" data-i="${i}" x="${(padL + i * step).toFixed(1)}" y="0" width="${step.toFixed(1)}" height="${plotH}"></rect>${label}`;
+    })
+    .join("");
+
+  const goalLine = goal
+    ? `<line class="goal" x1="${padL}" x2="${W}" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}"></line>`
+    : "";
+
+  const ticks = data
+    .map((d, i) =>
+      i % 3 === 0 || i === data.length - 1
+        ? `<text x="${(padL + i * step + step / 2).toFixed(1)}" y="${H - 3}" text-anchor="middle">${d.week.slice(5)}</text>`
+        : ""
+    )
+    .join("");
+
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="近 12 週每週完成靶機數">
+      ${gridLines}${goalLine}${bars}${ticks}
+    </svg>
+    <div class="chart-tip" id="trend-tip"></div>
+    <div class="chart-legend">
+      <span><i></i>每週完成</span>
+      ${goal ? `<span><i class="goal"></i>考前打完必練所需（${goal.toFixed(1)} 台）</span>` : ""}
+    </div>`;
+
+  const tip = $("#trend-tip");
+  host.querySelectorAll(".bar-hit").forEach((hit) => {
+    hit.addEventListener("mouseenter", (ev) => {
+      const d = data[Number(ev.target.dataset.i)];
+      const box = host.getBoundingClientRect();
+      const r = ev.target.getBoundingClientRect();
+      tip.innerHTML = `${d.week.slice(5)} 那週<br><b>${d.done}</b> 台 · <b>${(d.minutes / 60).toFixed(1)}</b> 小時`;
+      tip.style.left = `${r.left - box.left + r.width / 2}px`;
+      tip.style.top = `${r.bottom - box.top - 8}px`;
+      tip.classList.add("show");
+    });
+    hit.addEventListener("mouseleave", () => tip.classList.remove("show"));
+  });
+}
+
+function renderPhases() {
+  const host = $("#phase-breakdown");
+  if (!host) return;
+  const counts = {};
+  let tagged = 0;
+  Object.values(state.entries).forEach((e) => {
+    if (!Array.isArray(e.phases) || !e.phases.length) return;
+    tagged += 1;
+    e.phases.forEach((id) => (counts[id] = (counts[id] || 0) + 1));
+  });
+
+  const scope = $("#phase-scope");
+  if (!tagged) {
+    if (scope) scope.textContent = "";
+    host.innerHTML = `<p class="empty">展開任一台靶機，標記你卡在哪個階段。累積幾台之後，這裡會告訴你弱點集中在哪。</p>`;
+    return;
+  }
+  if (scope) scope.textContent = `${tagged} 台有標記`;
+
+  const peak = Math.max(...Object.values(counts));
+  host.innerHTML = `<div class="phase-list">${PHASES.filter((p) => counts[p.id])
+    .sort((a, b) => counts[b.id] - counts[a.id])
+    .map(
+      (p) => `<div class="phase-row">
+        <span class="pname">${esc(p.label)}</span>
+        <span class="pnum">${counts[p.id]} 台</span>
+        <span class="pbar"><span style="width:${(counts[p.id] / peak) * 100}%"></span></span>
+        <small>${esc(p.hint)}</small>
+      </div>`
+    )
+    .join("")}</div>`;
+}
 
 const TIMER_KEY = "oscp-track-timer";
 const MAX_SESSION = 12 * 3600 * 1000;
@@ -1032,10 +1281,12 @@ function detailHtml(m) {
         <input type="number" min="0" step="15" value="${e.minutes || ""}" data-act="minutes" data-id="${esc(m.id)}">
         ${
           timer && timer.id === m.id
-            ? '<button type="button" class="btn sm" data-act="stop-timer" style="margin-top:4px">停止計時 · ' + elapsedText() + "</button>"
-            : `<button type="button" class="btn sm" data-act="start-timer" data-id="${esc(m.id)}" style="margin-top:4px">開始計時</button>`
+            ? '<button type="button" class="btn sm" data-act="stop-timer" style="margin-top:4px;align-self:flex-start">停止計時 · ' + elapsedText() + "</button>"
+            : `<button type="button" class="btn sm" data-act="start-timer" data-id="${esc(m.id)}" style="margin-top:4px;align-self:flex-start">開始計時</button>`
         }
       </div>
+      <div class="field"><label>排定日期</label><input type="date" value="${e.date || ""}" data-act="date" data-id="${esc(m.id)}"></div>
+      <div class="field"><label>Writeup 連結</label><input type="url" placeholder="https://" value="${esc(e.url || "")}" data-act="url" data-id="${esc(m.id)}"></div>
       <div class="field wide"><label>難度自評（跟 OffSec 給的分級比起來如何）</label>
         <div class="rating-row">
           ${["很簡單", "偏易", "剛好", "偏難", "打不動"]
@@ -1044,9 +1295,20 @@ function detailHtml(m) {
           ${e.rating ? `<button type="button" class="btn ghost sm" data-act="rating" data-id="${esc(m.id)}" data-value="">清除</button>` : ""}
         </div>
       </div>
-      <div class="field"><label>排定日期</label><input type="date" value="${e.date || ""}" data-act="date" data-id="${esc(m.id)}"></div>
-      <div class="field"><label>Writeup 連結</label><input type="url" placeholder="https://" value="${esc(e.url || "")}" data-act="url" data-id="${esc(m.id)}"></div>
-      <div class="field wide"><label>筆記（攻擊面、卡在哪、學到什麼）</label><textarea data-act="notes" data-id="${esc(m.id)}" placeholder="例：80/tcp 有舊版 CMS，作者路徑遍歷拿到憑證；提權靠 sudo 誤設。">${esc(e.notes || "")}</textarea></div>
+      <div class="field wide"><label>卡在哪（可複選，累積起來就是弱點分布）</label>
+        <div class="phase-picks">
+          ${PHASES.map(
+            (ph) =>
+              `<button type="button" data-act="phase" data-id="${esc(m.id)}" data-value="${ph.id}" title="${esc(ph.hint)}" aria-pressed="${(e.phases || []).includes(ph.id)}">${esc(ph.label)}</button>`
+          ).join("")}
+        </div>
+      </div>
+      <div class="field wide">
+        <label>筆記
+          ${!e.notes ? `<button type="button" class="btn ghost sm" data-act="template" data-id="${esc(m.id)}" style="margin-left:8px">插入模板</button>` : ""}
+        </label>
+        <textarea data-act="notes" data-id="${esc(m.id)}" placeholder="例：80/tcp 有舊版 CMS，作者路徑遍歷拿到憑證；提權靠 sudo 誤設。">${esc(e.notes || "")}</textarea>
+      </div>
     </div>
   </div>`;
 }
@@ -1328,6 +1590,8 @@ function renderSchedule() {
 function render() {
   renderTimer();
   renderOverview();
+  renderTrend();
+  renderPhases();
   renderPlan();
   renderBackup();
   if (ui.view === "machines") renderMachines();
@@ -1428,6 +1692,33 @@ document.addEventListener("click", (ev) => {
   if (quick) {
     ev.stopPropagation();
     return setStatus(quick.dataset.id, statusOf(quick.dataset.id) === "done" ? "todo" : "done");
+  }
+
+  const phase = ev.target.closest('[data-act="phase"]');
+  if (phase) {
+    ev.stopPropagation();
+    const e = entry(phase.dataset.id);
+    const list = new Set(e.phases || []);
+    if (list.has(phase.dataset.value)) list.delete(phase.dataset.value);
+    else list.add(phase.dataset.value);
+    e.phases = [...list];
+    save();
+    renderMachines();
+    return renderPhases();
+  }
+
+  const tpl = ev.target.closest('[data-act="template"]');
+  if (tpl) {
+    ev.stopPropagation();
+    entry(tpl.dataset.id).notes = NOTE_TEMPLATE;
+    save();
+    renderMachines();
+    const box = document.querySelector(`textarea[data-id="${tpl.dataset.id}"]`);
+    if (box) {
+      box.focus();
+      box.setSelectionRange(box.value.indexOf("開放埠：") + 4, box.value.indexOf("開放埠：") + 4);
+    }
+    return;
   }
 
   const rate = ev.target.closest('[data-act="rating"]');
@@ -1630,6 +1921,8 @@ $("#rail-focus").onclick = () => {
 };
 
 $("#btn-download").onclick = downloadBackup;
+
+$("#btn-markdown").onclick = exportMarkdown;
 
 $("#btn-restore-file").onclick = () => $("#file-input").click();
 

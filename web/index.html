@@ -70,6 +70,17 @@
         <div class="stat-grid" id="stat-grid"></div>
       </div>
 
+      <div class="split even">
+        <div class="panel">
+          <div class="panel-head"><h3>每週節奏</h3><span class="result-line" id="trend-scope"></span></div>
+          <div class="chart" id="trend"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>卡在哪</h3><span class="result-line" id="phase-scope"></span></div>
+          <div id="phase-breakdown"></div>
+        </div>
+      </div>
+
       <div class="split">
         <div class="panel">
           <div class="panel-head"><h3>各平台進度</h3><span class="result-line" id="platform-scope">OSCP 清單</span></div>
@@ -222,6 +233,7 @@
         <div class="panel-head"><h3>手動備份</h3><span class="result-line" id="storage-line"></span></div>
         <div class="data-actions">
           <button class="btn primary" id="btn-download">下載備份檔</button>
+          <button class="btn" id="btn-markdown">匯出筆記 Markdown</button>
           <button class="btn" id="btn-restore-file">從檔案還原</button>
           <button class="btn" id="btn-copy">複製 JSON</button>
           <button class="btn" id="btn-import">從下方貼上匯入</button>
