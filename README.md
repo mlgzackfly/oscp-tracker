@@ -152,53 +152,6 @@ Python + SQLite 後端；前端偵測到它才切換。沒有它時，那段程�
 - **排程** — 週視圖，手動排入或一鍵自動排本週 5 台
 - **資料** — 接上本機備份檔自動寫入，或手動下載／還原 JSON
 
-## 資料從哪來
-
-| 檔案 | 內容 |
-| --- | --- |
-| `data/lainkusanagi.xlsx` | 原始試算表（Google Sheets 匯出） |
-| `data/offsec_labs.tsv` | OffSec portal 的 343 筆 Practice 靶機難度（名稱／等級／OS／類型／ID） |
-| `data/machines.json` | 解析合併後的 445 台靶機 |
-| `web/data.js` | 同上，包成瀏覽器直接載入的形式 |
-
-難度等級 100/200/300/400 對應 Fundamental / Intermediate / Advanced / Insane，
-**只套用在 Proving Grounds 平台**——HackTheBox 也有 Access、Escape、Heist 這類同名靶機，跨平台對名會配錯。
-
-Proving Grounds Practice 必練 75 台的難度分布：Fundamental 14、Intermediate 54、Advanced 5；
-另有 Hokkaido 與 Mice 兩台在 portal 上已查無資料，推測已下架。
-
-## 重新產生資料
-
-只有要更新靶機清單時才需要 Python，平常用不到。
-
-```bash
-uv run --with openpyxl python scripts/parse_sheet.py   # xlsx + tsv → data/machines.json、web/data.js
-uv run python scripts/build.py                          # web/ → dist/ 單檔版
-```
-
-`data/offsec_labs.tsv` 是從 OffSec portal 的搜尋 API 取得的，格式為 `名稱\t等級\tOS\t類型\tID`，
-手動維護或重新抓取都可以，`parse_sheet.py` 會自動併入。
-
-## 專案結構
-
-```
-web/                   網站本體（vanilla JS，無框架、無建置流程）
-  index.html
-  styles.css
-  app.js
-  data.js              產生物，已 commit，這樣不用跑 Python 就能直接用
-dist/                  單檔版（產生物）
-data/                  原始與解析後的資料
-scripts/               資料解析與打包腳本
-server/app.py          帶資料庫的自架後端（Python 標準庫，零依賴）
-docker/nginx.conf      純靜態 Docker 的 nginx 設定
-Dockerfile             nginx alpine，提供 web/（純靜態）
-Dockerfile.db          python alpine，提供 web/ ＋ SQLite API（資料庫版）
-docker-compose.yml     純靜態，一行起服務
-docker-compose.db.yml  資料庫版，含 SQLite volume
-docs/                  README 用的截圖
-```
-
 ## 免責
 
 **這份清單和難度分級只是練習參考，不是考古題也不是保證。**
@@ -208,14 +161,6 @@ docs/                  README 用的截圖
 靶機也會下架或改版（例如 Hokkaido、Mice 已從 portal 消失），清單有時效性，一切以各平台當下的實際狀況為準。
 
 這個工具只幫你記錄進度，不會讓你變強，也不對你的考試結果負任何責任。
-
-## 資安
-
-做過一次白箱原始碼審查（對照 OWASP Top 10），細節見 [docs/SECURITY.md](docs/SECURITY.md)。重點：
-
-- 筆記的 Markdown 渲染實測擋得住 XSS（先逐字轉義再套標籤、連結強制 `https://`）
-- 後端全用參數化查詢、擋路徑穿越、帶 CSP 等安全標頭
-- **帶資料庫的版本預設無認證**——只在信任的內網跑，要開到公開網路就設 `OSCP_TOKEN` 並前置反向代理
 
 ## 授權
 
