@@ -30,25 +30,41 @@
 
 ### 方式二：Docker（推薦長期自架）
 
-適合放在家用伺服器、NAS 或 VPS 上，開機自動啟動、隨時能連。
+適合放在家用伺服器、NAS 或 VPS 上，開機自動啟動、隨時能連。有兩種，看你要不要伺服器端資料庫：
+
+**（a）純靜態，最輕便** — 進度存在瀏覽器（同單檔版）：
 
 ```bash
 git clone <你的 repo 網址> && cd OPSC_track
-docker compose up -d
+docker compose up -d          # nginx alpine，只提供 web/，約 10 MB 記憶體
 ```
 
-打開 `http://localhost:8731`（或伺服器 IP）。就這樣——映像檔是 nginx alpine，只提供 `web/` 這個純靜態目錄，
-沒有後端也沒有資料庫，跑起來大約 10 MB 記憶體。
+**（b）帶資料庫，換裝置換瀏覽器都同步** — 進度存進伺服器端 SQLite：
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+```
+
+打開 `http://localhost:8731`（或伺服器 IP）。(b) 的映像檔是 Python alpine + 標準庫的 `http.server` 與 `sqlite3`，
+**零 pip 依賴**，一樣輕；資料庫是掛在 volume `oscp-data` 的一個 SQLite 檔，容器砍掉重建資料都還在。
+前端會自動偵測到後端 API 並改用伺服器同步——不需要任何設定，「資料」分頁會顯示「資料庫同步中」。
+
+![資料庫同步中的資料分頁](docs/data-sync.jpg)
+
+多人共用一台：加 `?profile=你的名字` 就是各自獨立的一份進度（例如 `http://伺服器:8731/?profile=alice`）。
+要放到公開網路，在 `docker-compose.db.yml` 設 `OSCP_TOKEN`，前端用 `?token=...` 帶入；否則只在信任的內網跑。
 
 沒裝 compose 也能直接用 docker：
 
 ```bash
-docker build -t oscp-tracker .
-docker run -d --name oscp-tracker -p 8731:80 --restart unless-stopped oscp-tracker
+# 純靜態
+docker build -t oscp-tracker . && docker run -d -p 8731:80 --restart unless-stopped oscp-tracker
+# 帶資料庫
+docker build -f Dockerfile.db -t oscp-tracker-db .
+docker run -d -p 8731:80 -v oscp-data:/data --restart unless-stopped oscp-tracker-db
 ```
 
-想換連接埠改 `-p 你要的埠:80` 即可（compose 則改 `docker-compose.yml` 裡的 `ports`）。
-停掉用 `docker compose down` 或 `docker rm -f oscp-tracker`。
+想換連接埠改 `-p 你要的埠:80`。停掉用 `docker compose down`（加 `-f docker-compose.db.yml` 對應 DB 版）。
 
 ### 方式三：本機開發／改東西
 
@@ -90,27 +106,33 @@ OSCP 準備動輒三個月，這期間 localStorage 有幾個真的會清空的�
 - **Safari** 會清掉超過 7 天沒開的網站儲存（ITP 機制）——三個月裡放一週假就可能歸零
 - 無痕視窗、瀏覽器改版或儲存空間不足時的清理
 
-所以 localStorage 只當「當下的暫存」，真正的保命是「資料」分頁的這兩層，**請務必至少開一層**：
+所以 localStorage 只當「當下的暫存」，真正保命的持久化有三種，**請務必至少用一種**：
 
-- **接上本機檔案（最推薦）** — 選一個備份檔，之後每次改動都自動寫進那個**真正的磁碟檔案**（在瀏覽器儲存之外，
-  上面那些清空情況都影響不到它）。載入時會先讀回檔案、和本機**逐台比對時間戳合併**，較新的一方留下——
-  所以就算 localStorage 被清空，重開後也會從檔案完整還原。把檔案放進 iCloud Drive、Dropbox、Google Drive
-  這類同步資料夾，換電腦時在新機器接同一個檔案就接上了。需要 Chrome、Edge 等 Chromium 瀏覽器（File System Access API）
-- **手動備份** — 隨時下載 JSON、從檔案還原，或複製／貼上。Firefox、Safari 沒有上面的自動寫檔，**只能走這條，請養成每週下載一次的習慣**
+- **伺服器資料庫（最省心）** — 用上面 Docker 的「帶資料庫」版，進度存進伺服器端 SQLite，
+  換裝置、換瀏覽器、清快取全都不影響，前端自動偵測、免設定。這是不用自己顧檔案又要跨裝置的首選
+- **接上本機檔案** — 沒有伺服器時的最強方案。選一個備份檔，之後每次改動都自動寫進那個**真正的磁碟檔案**
+  （在瀏覽器儲存之外，上面那些清空情況都影響不到它）。載入時會先讀回檔案、和本機**逐台比對時間戳合併**，
+  較新的一方留下——所以就算 localStorage 被清空，重開後也會從檔案完整還原。把檔案放進 iCloud Drive、Dropbox、
+  Google Drive 這類同步資料夾，換電腦時接同一個檔案就接上了。需要 Chrome、Edge 等 Chromium 瀏覽器（File System Access API）
+- **手動備份** — 隨時下載 JSON、從檔案還原，或複製／貼上。Firefox、Safari 若不接檔案就只能走這條，請養成每週下載一次的習慣
 
-超過七天沒備份時，總覽頁最上方會直接跳提醒。
+三種都用同一套逐台時間戳合併，多台裝置各打各的不會互相蓋掉。超過七天沒備份（且沒接資料庫）時，總覽頁最上方會跳提醒。
 
-**一句話結論**：localStorage 會弄丟，接上本機檔案（Chromium）或每週手動下載（Firefox／Safari）才不會。
-跨裝置又不想自己顧檔案，用下面 Claude Artifact 的雲端版。
+**一句話結論**：只靠 localStorage 會弄丟。跨裝置又想省心 → Docker 資料庫版；純本機 → 接檔案（Chromium）或每週下載（Firefox／Safari）；
+用 Claude Artifact 版則自動綁帳號雲端同步。
 
-### 為什麼不用資料庫
+### 三個版本、三種資料落點
 
-自架版刻意不接資料庫：一有資料庫就得有伺服器、要維運、要備份，跟「下載一個檔案就能跑」直接衝突。
-本機檔案自動寫入已經涵蓋了資料庫在這裡的用途——持久、可帶走、可放進雲端同步。
+同一份前端，依你怎麼跑它決定進度存在哪。前端會自己偵測環境，不用改設定：
 
-發佈成 Claude Artifact 的版本則會自動接上該 artifact 專屬的雲端資料庫（`db` capability）：
-同一個帳號在任何裝置開同一個連結都是同一份進度，清快取也不影響。合併是逐台比對時間戳做的，
-兩台裝置各打各的不會互相蓋掉。想要跨裝置又不想自己架東西，用那個版本。
+| 版本 | 資料存在哪 | 跨裝置 | 適合 |
+| --- | --- | --- | --- |
+| 單檔 / 純靜態 | 瀏覽器 localStorage（＋可選本機檔案備份） | 靠檔案手動帶 | 最輕便、只在一台機器用 |
+| Docker 資料庫版 | 伺服器端 SQLite | ✅ 自動 | 自架、要換裝置換瀏覽器同步 |
+| Claude Artifact | 該 artifact 專屬雲端資料庫（`db` capability） | ✅ 綁帳號 | 完全不想自己架東西 |
+
+「最輕便就是一個 HTML」與「要資料庫」不衝突：HTML 本身不帶資料庫，資料庫只是 Docker 版多跑的一個
+Python + SQLite 後端；前端偵測到它才切換。沒有它時，那段程式碼靜默退回本機模式。
 
 ## 功能
 
@@ -160,18 +182,21 @@ uv run python scripts/build.py                          # web/ → dist/ 單檔�
 ## 專案結構
 
 ```
-web/                網站本體（vanilla JS，無框架、無建置流程）
+web/                   網站本體（vanilla JS，無框架、無建置流程）
   index.html
   styles.css
   app.js
-  data.js           產生物，已 commit，這樣不用跑 Python 就能直接用
-dist/               單檔版（產生物）
-data/               原始與解析後的資料
-scripts/            資料解析與打包腳本
-docker/nginx.conf   Docker 用的 nginx 設定
-Dockerfile          nginx alpine，提供 web/
-docker-compose.yml  一行起服務
-docs/               README 用的截圖
+  data.js              產生物，已 commit，這樣不用跑 Python 就能直接用
+dist/                  單檔版（產生物）
+data/                  原始與解析後的資料
+scripts/               資料解析與打包腳本
+server/app.py          帶資料庫的自架後端（Python 標準庫，零依賴）
+docker/nginx.conf      純靜態 Docker 的 nginx 設定
+Dockerfile             nginx alpine，提供 web/（純靜態）
+Dockerfile.db          python alpine，提供 web/ ＋ SQLite API（資料庫版）
+docker-compose.yml     純靜態，一行起服務
+docker-compose.db.yml  資料庫版，含 SQLite volume
+docs/                  README 用的截圖
 ```
 
 ## 免責

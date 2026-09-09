@@ -1,0 +1,18 @@
+services:
+  oscp-tracker-db:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    image: oscp-tracker-db
+    container_name: oscp-tracker-db
+    ports:
+      - "8731:80"
+    volumes:
+      - oscp-data:/data
+    # 若要在公開網路上跑，取消下一行註解並設一組密碼，前端用 ?token=... 帶入
+    # environment:
+    #   OSCP_TOKEN: "改成你的密碼"
+    restart: unless-stopped
+
+volumes:
+  oscp-data:

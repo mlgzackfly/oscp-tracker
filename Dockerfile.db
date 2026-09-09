@@ -1,0 +1,18 @@
+# 有資料庫的版本：Python 標準庫 http server + SQLite，零 pip 依賴
+FROM python:3.12-alpine
+
+WORKDIR /app
+COPY web/ /app/web/
+COPY server/ /app/server/
+
+ENV OSCP_WEB=/app/web \
+    OSCP_DB=/data/oscp.db \
+    PORT=80
+
+VOLUME ["/data"]
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget -qO- http://localhost/api/health >/dev/null 2>&1 || exit 1
+
+CMD ["python", "server/app.py"]

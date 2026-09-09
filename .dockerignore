@@ -6,3 +6,4 @@ data/*.xlsx
 data/*.tsv
 *.md
 LICENSE
+server/data

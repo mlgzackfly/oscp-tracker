@@ -6784,6 +6784,7 @@ function save() {
   }
   scheduleBackup();
   scheduleDb();
+  scheduleServer();
 }
 
 const META_KEY = "oscp-track-meta";
@@ -6821,6 +6822,76 @@ function saveMeta() {
 let dbDoc = null;
 let dbState = "off";
 let dbTimer = null;
+
+const SERVER_PROFILE = (new URLSearchParams(location.search).get("profile") || "default").slice(0, 64);
+let serverSync = false;
+let serverState = "off";
+let serverTimer = null;
+
+async function serverApi(method, body) {
+  const opts = { method };
+  if (body) {
+    opts.headers = { "Content-Type": "application/json" };
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(`api/state?profile=${encodeURIComponent(SERVER_PROFILE)}`, opts);
+  if (!r.ok) throw new Error("http " + r.status);
+  return r.json();
+}
+
+async function pushServer() {
+  if (!serverSync) return;
+  try {
+    await serverApi("PUT", syncPayload());
+    serverState = "on";
+  } catch (err) {
+    serverState = "error";
+  }
+  renderSync();
+}
+
+function scheduleServer() {
+  if (!serverSync) return;
+  clearTimeout(serverTimer);
+  serverTimer = setTimeout(pushServer, 1500);
+}
+
+async function pollServer() {
+  if (!serverSync) return;
+  try {
+    const { state: remote } = await serverApi("GET");
+    if (remote) applyRemote(remote);
+    serverState = "on";
+  } catch (err) {
+    serverState = "error";
+  }
+  renderSync();
+}
+
+async function initServer() {
+  if (HOSTED) return; // Claude Artifact 版由 db capability 處理
+  try {
+    const h = await fetch("api/health");
+    if (!h.ok) return;
+    const info = await h.json();
+    if (!info.db) return;
+  } catch (err) {
+    return; // 沒有後端（單檔或純靜態）就維持本機模式
+  }
+  serverSync = true;
+  serverState = "syncing";
+  renderSync();
+  // 先讀回伺服器、逐台合併，再把本機獨有／較新的推回去（順序同檔案備份，不會覆蓋）
+  try {
+    const { state: remote } = await serverApi("GET");
+    if (remote) applyRemote(remote);
+    await pushServer();
+  } catch (err) {
+    serverState = "error";
+  }
+  renderSync();
+  setInterval(pollServer, 30000);
+}
 
 function syncPayload() {
   return {
@@ -6911,11 +6982,25 @@ async function initDb() {
 function renderSync() {
   const panel = $("#sync-panel");
   if (!panel) return;
-  if (!HOSTED) {
+  if (!HOSTED && !serverSync) {
     panel.hidden = true;
     return;
   }
   panel.hidden = false;
+
+  if (serverSync) {
+    const serverBlocks = {
+      syncing: `<div class="backup-head"><span class="badge warn">連線中</span><h3>正在對伺服器資料庫</h3></div>`,
+      on: `<div class="backup-head"><span class="badge ok">資料庫同步中</span><h3>存在伺服器，換裝置與瀏覽器都同步</h3></div>
+        <p class="backup-body">進度存在這台伺服器的 SQLite 裡（設定檔 <code>profile=${esc(SERVER_PROFILE)}</code>），
+          清瀏覽器快取、換瀏覽器、換裝置都不影響。逐台比對時間戳合併，多台裝置各打各的不會互相蓋掉，每 30 秒對一次。</p>`,
+      error: `<div class="backup-head"><span class="badge warn">同步中斷</span><h3>暫時連不上伺服器</h3></div>
+        <p class="backup-body">改動仍存在這個瀏覽器裡，連線恢復後會自己補上。真的不放心就先手動備份一份。</p>`,
+    };
+    panel.innerHTML = serverBlocks[serverState] || serverBlocks.syncing;
+    return;
+  }
+
   const blocks = {
     off: `<div class="backup-head"><span class="badge off">未啟用</span><h3>這個版本沒有雲端同步</h3></div>
       <p class="backup-body">進度只留在這個瀏覽器，記得手動備份。</p>`,
@@ -8998,6 +9083,7 @@ if (timer) startTick();
 initBackup();
 renderSync();
 initDb();
+initServer();
 if (HOSTED) {
   window.claude
     .use("downloads")
