@@ -4,6 +4,7 @@
 同時提供 web/ 靜態檔與 /api/state 讀寫，進度存進 SQLite。前端偵測到
 這個 API 就會自動改用伺服器同步，換瀏覽器、清快取都不影響。
 """
+import hmac
 import json
 import mimetypes
 import os
@@ -12,6 +13,25 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+# 讓 index.html 可被內嵌自家字型 CDN；其餘一律同源。XSS 已在前端以逐字轉義防住，
+# 這層 CSP 是縱深防禦；style 需 unsafe-inline 因為頁面有 style="" 屬性。
+CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src https://fonts.gstatic.com; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'none'"
+)
+SECURITY_HEADERS = {
+    "Content-Security-Policy": CSP,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+}
 
 WEB = Path(os.environ.get("OSCP_WEB", Path(__file__).resolve().parent.parent / "web"))
 DB_PATH = os.environ.get("OSCP_DB", str(Path(__file__).resolve().parent / "data" / "oscp.db"))
@@ -68,11 +88,16 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def _headers(self):
+        for name, value in SECURITY_HEADERS.items():
+            self.send_header(name, value)
+
     def _json(self, code, obj):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self._headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -84,10 +109,9 @@ class Handler(BaseHTTPRequestHandler):
         if not TOKEN:
             return True
         header = self.headers.get("Authorization", "")
-        if header == f"Bearer {TOKEN}":
-            return True
-        q = parse_qs(parsed.query)
-        return q.get("token", [""])[0] == TOKEN
+        supplied = header[7:] if header.startswith("Bearer ") else parse_qs(parsed.query).get("token", [""])[0]
+        # 常數時間比對，避免以回應時間逐字元猜出 token
+        return hmac.compare_digest(supplied, TOKEN)
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -98,8 +122,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(401, {"error": "unauthorized"})
             try:
                 return self._json(200, {"state": read_state(self._profile(parsed))})
-            except Exception as exc:  # noqa: BLE001
-                return self._json(500, {"error": str(exc)})
+            except Exception:  # noqa: BLE001
+                return self._json(500, {"error": "server error"})
         return self._serve_static(parsed)
 
     def do_PUT(self):
@@ -114,11 +138,11 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(self.rfile.read(length))
             if not isinstance(data, dict) or "entries" not in data:
-                raise ValueError("state 格式不符")
+                return self._json(400, {"error": "invalid state"})
             updated = write_state(self._profile(parsed), data)
             return self._json(200, {"ok": True, "updatedAt": updated})
-        except Exception as exc:  # noqa: BLE001
-            return self._json(400, {"error": str(exc)})
+        except Exception:  # noqa: BLE001
+            return self._json(400, {"error": "bad request"})
 
     def _serve_static(self, parsed):
         target = safe_path(parsed.path)
@@ -134,6 +158,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        self._headers()
         if target.name == "data.js":
             self.send_header("Cache-Control", "public, max-age=86400")
         else:

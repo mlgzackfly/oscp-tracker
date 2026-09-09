@@ -88,14 +88,17 @@ let dbState = "off";
 let dbTimer = null;
 
 const SERVER_PROFILE = (new URLSearchParams(location.search).get("profile") || "default").slice(0, 64);
+const SERVER_TOKEN = new URLSearchParams(location.search).get("token") || "";
 let serverSync = false;
 let serverState = "off";
 let serverTimer = null;
 
 async function serverApi(method, body) {
-  const opts = { method };
+  const opts = { method, headers: {} };
+  // token 走 Authorization 標頭，不放進 URL query，避免落進伺服器 log 與瀏覽器歷史
+  if (SERVER_TOKEN) opts.headers.Authorization = `Bearer ${SERVER_TOKEN}`;
   if (body) {
-    opts.headers = { "Content-Type": "application/json" };
+    opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
   const r = await fetch(`api/state?profile=${encodeURIComponent(SERVER_PROFILE)}`, opts);
