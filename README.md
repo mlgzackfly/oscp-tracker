@@ -35,7 +35,7 @@
 **（a）純靜態，最輕便** — 進度存在瀏覽器（同單檔版）：
 
 ```bash
-git clone <你的 repo 網址> && cd OPSC_track
+git clone https://github.com/mlgzackfly/oscp-tracker.git && cd oscp-tracker
 docker compose up -d          # nginx alpine，只提供 web/，約 10 MB 記憶體
 ```
 
@@ -69,7 +69,7 @@ docker run -d -p 8731:80 -v oscp-data:/data --restart unless-stopped oscp-tracke
 ### 方式三：本機開發／改東西
 
 ```bash
-git clone <你的 repo 網址> && cd OPSC_track
+git clone https://github.com/mlgzackfly/oscp-tracker.git && cd oscp-tracker
 open web/index.html          # macOS
 xdg-open web/index.html      # Linux
 start web\index.html         # Windows
