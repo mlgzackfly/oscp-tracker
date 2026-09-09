@@ -1,0 +1,17 @@
+{
+  "name": "OSCP 靶機作戰台",
+  "short_name": "OSCP 作戰台",
+  "description": "離線可用的 OSCP 靶機練習追蹤器",
+  "lang": "zh-Hant",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#11141a",
+  "theme_color": "#11141a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

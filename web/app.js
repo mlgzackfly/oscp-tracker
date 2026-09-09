@@ -2362,3 +2362,38 @@ if (HOSTED) {
 }
 $("#storage-line").textContent = `已記錄 ${Object.keys(state.entries).length} 台 · ${lastBackupText()}`;
 $("#source-line").textContent = `OSCP 分頁 ${trackPool("OSCP").length} 台 · Red Teaming 分頁 ${trackPool("Red Team").length} 台 · 必練 ${REQUIRED.length} 台`;
+
+/* ---------- PWA：離線快取與安裝 ---------- */
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      /* file:// 或不支援時略過，網站照常運作 */
+    });
+  });
+}
+
+let installPrompt = null;
+const installBtn = $("#btn-install");
+
+window.addEventListener("beforeinstallprompt", (ev) => {
+  ev.preventDefault();
+  installPrompt = ev;
+  if (installBtn) installBtn.hidden = false;
+});
+
+if (installBtn) {
+  installBtn.onclick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    installPrompt = null;
+    installBtn.hidden = true;
+    if (outcome === "accepted") toast("已加入主畫面");
+  };
+}
+
+window.addEventListener("appinstalled", () => {
+  installPrompt = null;
+  if (installBtn) installBtn.hidden = true;
+});

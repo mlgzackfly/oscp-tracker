@@ -2,10 +2,16 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>OSCP 靶機作戰台</title>
 <meta name="description" content="離線可用的 OSCP 靶機練習追蹤器：記錄進度、隨機抽靶機、安排每週排程。">
+<meta name="theme-color" content="#11141a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OSCP 作戰台">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127919;</text></svg>">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -258,6 +264,7 @@
       <div class="panel" style="display:flex;flex-direction:column;gap:12px">
         <div class="panel-head"><h3>手動備份</h3><span class="result-line" id="storage-line"></span></div>
         <div class="data-actions">
+          <button class="btn" id="btn-install" hidden>安裝為 App</button>
           <button class="btn primary" id="btn-download">下載備份檔</button>
           <button class="btn" id="btn-markdown">匯出筆記 Markdown</button>
           <button class="btn" id="btn-restore-file">從檔案還原</button>

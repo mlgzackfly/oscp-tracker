@@ -42,6 +42,7 @@ MAX_BODY = 5 * 1024 * 1024
 _lock = threading.Lock()
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("application/json", ".json")
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
 def init_db():

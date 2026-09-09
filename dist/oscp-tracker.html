@@ -1102,7 +1102,36 @@ ul { list-style: none; margin: 0; padding: 0; }
   .nav .count, .rail-focus { display: none; }
   #timer-slot { display: none; }
   .rail-foot { margin: 0; }
+  .rail-foot #theme-toggle { margin-left: 0; white-space: nowrap; }
   .main { padding: 18px 14px 56px; }
+
+  /* 瀏海／圓角手機的安全區 */
+  .rail { padding-top: calc(10px + env(safe-area-inset-top)); }
+  .main {
+    padding-left: calc(14px + env(safe-area-inset-left));
+    padding-right: calc(14px + env(safe-area-inset-right));
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 460px) {
+  .main { padding: 14px 12px 48px; }
+  .view { gap: 16px; }
+  .view-head { gap: 10px; }
+  .view-head h2 { font-size: 21px; }
+  .view-head p { font-size: 13px; }
+  /* 標題與主要按鈕在窄螢幕整行排開，按鈕靠左不被擠壓 */
+  .view-head > div { width: 100%; }
+  .view-head .btn { width: auto; }
+  .stat b { font-size: 20px; }
+  .focus-card { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .ring { align-self: center; }
+  .toolbar .search { flex: 1 1 100%; }
+  .toolbar .sel, .toolbar .seg, .toolbar .toggle { flex: 1 1 auto; }
+  .week-grid { grid-template-columns: minmax(0, 1fr); }
+  .assign-bar select, .assign-bar input, .assign-bar .sel { flex: 1 1 100%; }
+  .countdown b { font-size: 26px; }
+  .plan-form .field { min-width: 0; flex: 1 1 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1388,6 +1417,7 @@ ul { list-style: none; margin: 0; padding: 0; }
       <div class="panel" style="display:flex;flex-direction:column;gap:12px">
         <div class="panel-head"><h3>手動備份</h3><span class="result-line" id="storage-line"></span></div>
         <div class="data-actions">
+          <button class="btn" id="btn-install" hidden>安裝為 App</button>
           <button class="btn primary" id="btn-download">下載備份檔</button>
           <button class="btn" id="btn-markdown">匯出筆記 Markdown</button>
           <button class="btn" id="btn-restore-file">從檔案還原</button>
@@ -9098,6 +9128,41 @@ if (HOSTED) {
 }
 $("#storage-line").textContent = `已記錄 ${Object.keys(state.entries).length} 台 · ${lastBackupText()}`;
 $("#source-line").textContent = `OSCP 分頁 ${trackPool("OSCP").length} 台 · Red Teaming 分頁 ${trackPool("Red Team").length} 台 · 必練 ${REQUIRED.length} 台`;
+
+/* ---------- PWA：離線快取與安裝 ---------- */
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      /* file:// 或不支援時略過，網站照常運作 */
+    });
+  });
+}
+
+let installPrompt = null;
+const installBtn = $("#btn-install");
+
+window.addEventListener("beforeinstallprompt", (ev) => {
+  ev.preventDefault();
+  installPrompt = ev;
+  if (installBtn) installBtn.hidden = false;
+});
+
+if (installBtn) {
+  installBtn.onclick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    installPrompt = null;
+    installBtn.hidden = true;
+    if (outcome === "accepted") toast("已加入主畫面");
+  };
+}
+
+window.addEventListener("appinstalled", () => {
+  installPrompt = null;
+  if (installBtn) installBtn.hidden = true;
+});
 </script>
 </body>
 </html>
