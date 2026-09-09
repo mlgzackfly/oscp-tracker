@@ -1359,6 +1359,22 @@ function renderOverview() {
 
 /* ---------- machines ---------- */
 
+function machineUrl(m) {
+  if (m.offsecId) return `https://portal.offsec.com/machine/${m.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-${m.offsecId}/overview`;
+  if (/Hackthebox/i.test(m.platform)) return `https://app.hackthebox.com/machines/${encodeURIComponent(m.name)}`;
+  return `https://duckduckgo.com/?q=${encodeURIComponent(m.name + " " + shortPlatform(m.platform) + " walkthrough")}`;
+}
+
+function machineUrlLabel(m) {
+  if (m.offsecId) return "在 OffSec portal 開啟這台";
+  if (/Hackthebox/i.test(m.platform)) return "在 HackTheBox 開啟這台";
+  return `搜尋 ${m.name} 的資料`;
+}
+
+function openLink(m, cls) {
+  return `<a class="${cls}" href="${machineUrl(m)}" target="_blank" rel="noopener" title="${esc(machineUrlLabel(m))}">↗</a>`;
+}
+
 function rowHtml(m) {
   const e = peek(m.id);
   const tags = [];
@@ -1368,7 +1384,7 @@ function rowHtml(m) {
   if (e.rating) tags.push(`<span class="chip" title="難度自評">${esc(e.rating)}</span>`);
   return `<div class="row state-${e.status}${ui.open === m.id ? " is-open" : ""}" data-id="${esc(m.id)}">
       <span class="dot ${e.status}"></span>
-      <span class="title"><span class="n">${esc(m.name)}</span></span>
+      <span class="title"><span class="n">${esc(m.name)}</span>${openLink(m, "open")}</span>
       <span class="os-cell chip">${esc(OS_LABEL[m.category] || m.category)}</span>
       <span class="lvl-cell">${levelMeter(m)}</span>
       <span class="tags">${tags.join("")}</span>
@@ -1384,6 +1400,9 @@ function rowHtml(m) {
 function detailHtml(m) {
   const e = peek(m.id);
   return `<div class="detail" data-detail="${esc(m.id)}">
+    <div class="detail-open">
+      <a class="btn sm" href="${machineUrl(m)}" target="_blank" rel="noopener">${esc(machineUrlLabel(m))} ↗</a>
+    </div>
     <div class="detail-grid">
       <div class="field"><label>耗時（分鐘）</label>
         <input type="number" min="0" step="15" value="${e.minutes || ""}" data-act="minutes" data-id="${esc(m.id)}">
@@ -1625,6 +1644,7 @@ function showResult(m) {
   $("#slot-hint").textContent = e.status === "todo" ? "還沒碰過這台。開機、列舉、計時開始。" : `目前狀態：${STATUSES[e.status]}`;
   $("#slot-actions").innerHTML = `
     <button class="btn primary" id="btn-start">標為進行中</button>
+    <a class="btn" href="${machineUrl(m)}" target="_blank" rel="noopener">在平台開啟 ↗</a>
     <button class="btn" id="btn-plan-today">排到今天</button>
     <button class="btn ghost" id="btn-draw">再抽一台</button>`;
 }
@@ -2180,7 +2200,7 @@ document.addEventListener("click", (ev) => {
   if (ev.target.closest("#btn-copy-2")) return $("#btn-copy").click();
 
   const row = ev.target.closest(".row");
-  if (row && !ev.target.closest("button")) {
+  if (row && !ev.target.closest("button") && !ev.target.closest("a")) {
     ui.open = ui.open === row.dataset.id ? null : row.dataset.id;
     return renderMachines();
   }

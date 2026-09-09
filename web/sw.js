@@ -1,5 +1,5 @@
 // 讓已載入過的頁面離線也能開。改版時把 CACHE 版號 +1。
-const CACHE = "oscp-tracker-v1";
+const CACHE = "oscp-tracker-v2";
 const SHELL = [".", "index.html", "styles.css", "app.js", "data.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {

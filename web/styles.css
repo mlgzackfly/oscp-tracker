@@ -773,6 +773,21 @@ ul { list-style: none; margin: 0; padding: 0; }
 .row .quick:hover { color: var(--done); border-color: var(--done); }
 .row.state-done .quick { opacity: 1; color: var(--done); }
 
+.row .title .open {
+  margin-left: 7px;
+  color: var(--ink-3);
+  text-decoration: none;
+  font-size: 12.5px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity .12s ease, color .12s ease;
+}
+.row:hover .title .open, .row.is-open .title .open, .row .title .open:focus-visible { opacity: 1; }
+.row .title .open:hover { color: var(--accent); }
+
+.detail-open { margin-bottom: 12px; }
+.detail-open .btn { text-decoration: none; }
+
 /* ---------- rating buttons ---------- */
 
 .rating-row { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -1058,6 +1073,7 @@ ul { list-style: none; margin: 0; padding: 0; }
   .table-head { display: none; }
   .row { grid-template-columns: 18px minmax(0, 1fr) auto auto; grid-template-areas: "d t q s" ". g q s" ". x x x"; row-gap: 4px; }
   .row .quick { grid-area: q; opacity: 1; }
+  .row .title .open { opacity: 1; }
   .row .dot { grid-area: d; }
   .row .title { grid-area: t; }
   .row .tags { grid-area: x; }
