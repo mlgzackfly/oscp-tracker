@@ -7,15 +7,15 @@
 > pwned, draw a random box, plan your week. One HTML file, no server, no build step,
 > no dependencies, no account.
 
-![總覽——考試倒數、每週節奏圖與卡關分布](docs/overview.jpg)
+![總覽——考試倒數、每週節奏圖與卡關分布](docs/overview.png)
 
 ## 畫面
 
 | | |
 | --- | --- |
-| ![靶機清單](docs/machines.jpg) | ![抽靶機](docs/draw.jpg) |
+| ![靶機清單](docs/machines.png) | ![抽靶機](docs/draw.png) |
 | **靶機清單**：依平台分組、可篩選，每台帶 OffSec 難度 | **抽靶機**：從候選池隨機挑一台，預設鎖定未完成的必練 |
-| ![筆記](docs/notes.jpg) | ![排程](docs/schedule.jpg) |
+| ![筆記](docs/notes.png) | ![排程](docs/schedule.png) |
 | **筆記**：集中管理、支援 Markdown、草稿／完成狀態 | **排程**：週視圖，手動排入或一鍵自動排 |
 
 ## 怎麼跑起來
@@ -49,7 +49,7 @@ docker compose -f docker-compose.db.yml up -d
 **零 pip 依賴**，一樣輕；資料庫是掛在 volume `oscp-data` 的一個 SQLite 檔，容器砍掉重建資料都還在。
 前端會自動偵測到後端 API 並改用伺服器同步——不需要任何設定，「資料」分頁會顯示「資料庫同步中」。
 
-![資料庫同步中的資料分頁](docs/data-sync.jpg)
+![資料庫同步中的資料分頁](docs/data-sync.png)
 
 多人共用一台：加 `?profile=你的名字` 就是各自獨立的一份進度（例如 `http://伺服器:8731/?profile=alice`）。
 要放到公開網路，在 `docker-compose.db.yml` 設 `OSCP_TOKEN`，前端用 `?token=...` 帶入；否則只在信任的內網跑。
